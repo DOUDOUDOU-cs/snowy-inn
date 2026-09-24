@@ -1,0 +1,132 @@
+:root {
+  font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
+  color: #deded7;
+  background: #111a21;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  --muted: #a2adb2;
+  --accent: #debe86;
+}
+* { box-sizing: border-box; }
+body { margin: 0; min-width: 280px; }
+button { font: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+button:focus-visible { outline: 2px solid var(--accent); outline-offset: 5px; }
+h1:focus { outline: none; }
+.game-shell { min-height: 100vh; display: grid; grid-template-columns: minmax(250px, 38%) 1fr; }
+.scenery { position: sticky; top: 0; height: 100vh; overflow: hidden; border-right: 1px solid #8eaaae26; }
+.scenery svg { width: 100%; height: 100%; display: block; }
+.scene-caption { position: absolute; bottom: 34px; left: 0; right: 0; text-align: center; font-size: 12px; letter-spacing: .25em; color: #bcc8cd; }
+#app { display: flex; align-items: center; min-width: 0; background: radial-gradient(ellipse at 0 50%, #22303a55, transparent 70%); }
+.screen { width: 100%; max-width: 850px; padding: 56px clamp(30px, 5vw, 88px); animation: reveal 360ms ease-out; }
+.eyebrow { color: var(--accent); font-size: 12px; letter-spacing: .22em; margin: 0 0 24px; }
+h1 { font-family: "Songti SC", "SimSun", serif; font-weight: 400; }
+.title-screen h1 { font-size: clamp(38px, 5vw, 68px); letter-spacing: .12em; margin: 0 0 30px; white-space: nowrap; }
+.title-description { font-family: "Songti SC", "SimSun", serif; color: #b8c0c1; font-size: 18px; line-height: 2.2; margin: 0 0 48px; }
+.start-button { background: var(--accent); color: #202932; border: 1px solid var(--accent); padding: 17px 23px; min-height: 56px; width: min(100%, 260px); display: flex; justify-content: space-between; align-items: center; gap: 22px; transition: background 160ms; }
+.start-button:hover { background: #ecd4a8; }
+.edition { margin-top: 24px; font-size: 12px; color: var(--muted); letter-spacing: .1em; }
+.story-nav { display: flex; justify-content: space-between; align-items: center; gap: 12px; color: var(--muted); font-size: 12px; margin-bottom: 52px; }
+.story-nav { flex-wrap: wrap; }
+.title-actions { display: grid; justify-items: start; gap: 10px; }
+.clue-list { margin-top: 36px; padding-top: 22px; border-top: 1px solid #8396a033; }
+.clue-list h2 { font-weight: 400; font-size: 15px; letter-spacing: .08em; color: var(--accent); }
+.clue-list p, .item-list > p { font-size: 14px; line-height: 1.9; color: var(--muted); margin: 10px 0; }
+.item-feedback { color: var(--accent); font-size: 13px; line-height: 1.8; margin-top: 20px; }
+.text-button { border: 0; background: transparent; color: var(--accent); padding: 12px 0; min-height: 44px; text-align: left; }
+.text-button:hover { color: #ffe4b4; text-decoration: underline; text-underline-offset: 5px; }
+.story-screen .eyebrow { margin-bottom: 15px; }
+.story-screen h1 { font-size: clamp(25px, 3vw, 38px); line-height: 1.5; margin: 0 0 28px; letter-spacing: .04em; }
+.narrative { font-size: 17px; line-height: 2; color: #d0d5d4; }
+.narrative p { margin: 0 0 16px; }
+.choices { display: grid; gap: 12px; margin-top: 36px; }
+.choice-button { display: flex; align-items: center; justify-content: space-between; gap: 18px; width: 100%; text-align: left; line-height: 1.6; border: 1px solid #8396a04d; background: #26343d44; color: #e2d6be; padding: 16px 20px; min-height: 58px; transition: background 160ms, border-color 160ms; }
+.choice-button:hover { border-color: #d1b480; background: #35414988; }
+.choice-button span:last-child { color: var(--accent); }
+.preview-end { border-top: 1px solid #8396a033; padding-top: 20px; }
+.preview-end p { margin: 0 0 4px; color: var(--muted); font-size: 13px; line-height: 1.9; }
+.preview-end button { font-size: 14px; }
+.save-warning { color: #edc593; border-left: 2px solid #debe86; padding: 12px 16px; background: #59402a44; font-size: 13px; line-height: 1.8; }
+.history-intro { color: var(--muted); font-size: 14px; line-height: 1.9; }
+.record-button { display: grid; gap: 6px; }
+.record-button small { color: var(--muted); font-size: 12px; line-height: 1.7; }
+.history-pages { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); border-bottom: 1px solid #8396a033; margin: 20px 0; }
+button:disabled { cursor: default; opacity: .4; text-decoration: none; }
+.diary-list { max-width: 650px; padding-left: 24px; border-left: 1px solid #8396a04d; }
+.diary-list h2 { margin: 30px 0 15px; color: var(--accent); font-weight: 400; font-size: 13px; letter-spacing: .12em; }
+.diary-list p { margin: 0 0 20px; color: #d0d5d4; font-family: "Songti SC", "SimSun", serif; font-size: 17px; line-height: 2.05; }
+.diary-list .diary-ending { color: var(--accent); font-family: inherit; font-size: 13px; letter-spacing: .1em; }
+.rope-panel { position: relative; height: 160px; margin-top: 25px; overflow: hidden; border: 1px solid #8396a04d; background: linear-gradient(#23313a, #111a21); }
+.rope-wheel { position: absolute; top: 17px; left: 50%; width: 58px; height: 58px; margin-left: -29px; border: 5px solid #b89866; border-radius: 50%; transform: rotate(0deg); transition: transform 380ms ease; }
+.rope-wheel::before, .rope-wheel::after { content: ""; position: absolute; top: 22px; left: 5px; width: 38px; height: 3px; background: #b89866; }
+.rope-wheel::after { transform: rotate(90deg); }
+.rope-line { position: absolute; top: 71px; left: calc(50% - 2px); height: 73px; width: 4px; background: repeating-linear-gradient(#d5bf9e 0 8px, #a58b6d 8px 12px); transition: height 380ms ease; }
+.rope-bucket { position: absolute; top: 127px; left: calc(50% - 17px); width: 34px; height: 25px; border: 3px solid #a98e72; border-top: 0; transform: translateY(18px); transition: transform 380ms ease; }
+.rope-stage-1 .rope-line, .rope-stage-2 .rope-line { background: repeating-linear-gradient(#e6cba5 0 8px, #a58b6d 8px 12px); }
+.rope-stage-3 .rope-wheel { transform: rotate(90deg); }
+.rope-stage-4 .rope-wheel { transform: rotate(180deg); }
+.rope-stage-3 .rope-bucket { transform: translateY(6px); }
+.rope-stage-4 .rope-bucket { transform: translateY(-9px); }
+.puzzle-dialog { width: min(92vw, 560px); max-height: min(90vh, 760px); overflow-y: auto; padding: clamp(22px, 4vw, 34px); border: 1px solid #b99b6a; color: #e5e0d4; background: #19242b; box-shadow: 0 24px 80px #02070bd9, inset 0 0 0 5px #d4b88012; }
+.puzzle-dialog::backdrop { background: #070d12c9; backdrop-filter: blur(5px); }
+.puzzle-heading { display: flex; justify-content: space-between; align-items: start; gap: 16px; }
+.puzzle-eyebrow { margin: 0 0 8px; color: var(--accent); font-size: 11px; letter-spacing: .16em; }
+.puzzle-heading h2 { margin: 0; font: 400 clamp(24px, 5vw, 32px)/1.4 "Songti SC", "SimSun", serif; }
+.puzzle-close { flex: none; width: 42px; height: 42px; border: 1px solid #8396a04d; background: #26343d; color: #e5e0d4; font-size: 25px; line-height: 1; }
+.puzzle-close:hover { border-color: var(--accent); }
+.puzzle-description { margin: 14px 0 18px; color: #bac5c3; font-size: 14px; line-height: 1.8; }
+.debris-workbench { position: relative; height: clamp(245px, 45vh, 310px); overflow: hidden; border: 4px solid #5b4938; background: radial-gradient(circle at 50% 54%, #d8b97744 0 9%, transparent 20%), radial-gradient(circle at 30% 25%, #7e8a8544, transparent 26%), repeating-linear-gradient(130deg, #3f4848 0 6px, #364141 6px 12px, #424a48 12px 17px); box-shadow: inset 0 0 55px #101a1e; }
+.debris-workbench::before { content: ""; position: absolute; inset: 0; pointer-events: none; background: radial-gradient(circle at 12% 20%, #c4c9b944 0 2px, transparent 3px), radial-gradient(circle at 81% 73%, #a4b1ac77 0 3px, transparent 4px), radial-gradient(circle at 66% 16%, #c4c9b944 0 2px, transparent 3px), radial-gradient(circle at 24% 85%, #a4b1ac77 0 3px, transparent 4px); }
+.debris-ring { position: absolute; z-index: 1; left: 50%; top: 52%; width: 76px; height: 76px; transform: translate(-50%, -50%); border: 0; border-radius: 50%; background: #e0c0832b; opacity: .28; transition: opacity 260ms, box-shadow 260ms; }
+.debris-ring span { display: block; width: 45px; height: 45px; margin: auto; border: 9px solid #d3ae65; border-radius: 50%; box-shadow: inset 0 0 6px #f8e7b0, 0 1px 12px #f5d28f; }
+.is-uncovered .debris-ring { opacity: 1; box-shadow: 0 0 28px #ddbf6b88; cursor: pointer; }
+.is-uncovered .debris-ring:hover { box-shadow: 0 0 42px #efd58bcc; }
+.debris-piece { position: absolute; width: 60%; height: 52px; border: 1px solid #aa8153; border-radius: 4px 11px 5px 9px; background: repeating-linear-gradient(171deg, #98704a 0 4px, #815c3d 5px 10px, #785235 11px 13px, #9b7047 15px 21px); box-shadow: 3px 8px 10px #0e1518b3, inset 0 5px 5px #caa3737a, inset 0 -6px 4px #3927198c; transition: opacity 300ms, translate 300ms, box-shadow 160ms; }
+.debris-piece:hover { box-shadow: 3px 8px 15px #0e1518, inset 0 5px 5px #e2ba897a, inset 0 -6px 4px #3927198c; }
+.debris-piece-bottom { z-index: 2; top: 55%; left: 18%; transform: rotate(-23deg); }
+.debris-piece-middle { z-index: 3; top: 43%; left: 22%; transform: rotate(17deg); }
+.debris-piece-top { z-index: 4; top: 31%; left: 20%; transform: rotate(-9deg); }
+.debris-piece.is-cleared { opacity: 0; translate: 130px -35px; pointer-events: none; }
+.puzzle-hint { min-height: 28px; margin: 15px 0 4px; color: var(--accent); font-size: 14px; line-height: 1.8; }
+.puzzle-footnote { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.6; }
+.cord-dialog { width: min(96vw, 940px); max-height: 95vh; }
+.cord-puzzle-layout { display: grid; grid-template-columns: minmax(210px, 260px) minmax(0, 1fr); align-items: center; gap: clamp(18px, 3vw, 34px); margin-top: 16px; }
+.cord-instructions { align-self: stretch; display: flex; flex-direction: column; justify-content: center; }
+.cord-instructions .puzzle-description { margin-top: 0; }
+.cord-progress { margin: 4px 0 12px; padding: 10px 12px; border-left: 2px solid #9d835f; color: #d0c19f; background: #0c15164d; font-size: 13px; line-height: 1.7; letter-spacing: .03em; }
+.cord-board { position: relative; justify-self: center; width: min(60vh, 600px, 100%); aspect-ratio: 1; overflow: hidden; border: 1px solid #735c43; border-radius: 50%; background: radial-gradient(circle, #182321 0 55%, #2d332e 72%, #1b2421 100%); box-shadow: inset 0 0 65px #070d0c, 0 10px 28px #07101499; }
+.cord-board::after { content: ""; position: absolute; inset: 0; border-radius: 50%; pointer-events: none; background: radial-gradient(circle at 42% 38%, #c39a5a18, transparent 46%), repeating-conic-gradient(#ffffff08 0 1deg, transparent 1deg 9deg); }
+.cord-svg { position: absolute; z-index: 2; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
+.cord-handle { position: absolute; z-index: 4; width: clamp(24px, 4.2vh, 34px); height: clamp(24px, 4.2vh, 34px); padding: 0; transform: translate(-50%, -50%); border: clamp(3px, .55vh, 5px) solid var(--cord-color); border-radius: 50%; background: #202a27; color: #e2d7bd; font-size: clamp(8px, 1.25vh, 10px); font-weight: 700; box-shadow: 0 3px 10px #101819, inset 0 0 4px #e7ebdd44; cursor: grab; touch-action: none; transition: box-shadow 150ms, opacity 150ms; }
+.cord-handle:hover, .cord-handle.is-selected { box-shadow: 0 0 0 5px #f4e1b866, 0 3px 14px #101819; }
+.cord-handle.is-partner { box-shadow: 0 0 0 3px #d6c49b66, 0 3px 12px #101819; }
+.cord-handle.is-dragging { cursor: grabbing; box-shadow: 0 0 0 6px #f4e1b888, 0 8px 22px #101819; }
+.cord-key { position: absolute; z-index: 3; left: 50%; top: 50%; width: 90px; height: 105px; transform: translate(-50%, -50%) rotate(-30deg); border: 0; background: #17201fc7; border-radius: 50%; opacity: .22; transition: opacity 220ms, filter 220ms; }
+.cord-key-shape { position: absolute; top: 9px; left: 33px; width: 28px; height: 28px; border: 8px solid #d7a15e; border-radius: 50%; box-shadow: 0 0 7px #f8d08e88; }
+.cord-key-shape::before { content: ""; position: absolute; width: 10px; height: 57px; left: 1px; top: 17px; background: linear-gradient(90deg, #af703d, #ecc27b, #a76f3d); }
+.cord-key-shape::after { content: ""; position: absolute; width: 21px; height: 9px; left: 1px; top: 59px; background: #c99150; box-shadow: 0 -11px #c99150; }
+.cord-solved .cord-key { z-index: 5; opacity: 1; filter: drop-shadow(0 0 13px #ebc883); cursor: pointer; }
+.cord-solved .cord-key:hover { filter: drop-shadow(0 0 23px #f1d598); }
+.cord-solved .cord-handle { opacity: .7; }
+@media (max-width: 760px) {
+  .cord-dialog { width: min(96vw, 620px); }
+  .cord-puzzle-layout { display: flex; flex-direction: column; align-items: stretch; }
+  .cord-instructions { display: block; }
+  .cord-board { width: min(84vw, 55vh, 560px); }
+  .cord-instructions .puzzle-hint, .cord-instructions .puzzle-footnote { margin-top: 8px; }
+}
+@keyframes reveal { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: translateY(0); } }
+@media (max-width: 700px) {
+  .game-shell { display: block; }
+  .scenery { position: absolute; top: 0; right: 0; height: 100vh; width: 100%; opacity: .22; border: 0; pointer-events: none; }
+  .scenery::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, #111a21e8, #111a2177); }
+  .scene-caption { display: none; }
+  #app { position: relative; min-height: 100vh; background: none; }
+  .screen { padding: 40px 26px; }
+  .title-screen h1 { font-size: clamp(34px, 9vw, 58px); }
+  .story-nav { margin-bottom: 36px; }
+  .narrative { font-size: 16px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
