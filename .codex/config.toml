@@ -1,0 +1,8 @@
+# 《雪夜旅馆》项目配置。角色由 .codex/agents/*.toml 自动发现。
+# 模型、推理强度、权限和工具沿用当前客户端，避免绑定某台电脑。
+# 本文件只在受信任的项目中加载；重新开启 game 项目会话后验证。
+
+[agents]
+enabled = true
+# 不含主 agent；六个角色按任务选用，最多同时运行三个子 agent。
+max_concurrent_threads_per_session = 3

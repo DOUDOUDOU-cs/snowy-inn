@@ -4,39 +4,18 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#111a21" />
+    <link rel="preload" as="image" href="/scenes/forest-inn.webp" />
     <link rel="stylesheet" href="/src/styles.css" />
     <title>雪夜旅馆 · 探索试玩</title>
     <script type="module" src="/src/main.ts"></script>
   </head>
   <body>
-    <div class="game-shell">
-      <div class="scenery" aria-hidden="true">
-        <svg viewBox="0 0 600 900" preserveAspectRatio="xMidYMid slice" focusable="false">
-          <defs>
-            <linearGradient id="night" x2="0" y2="1"><stop stop-color="#20313e"/><stop offset="1" stop-color="#0c161f"/></linearGradient>
-            <radialGradient id="glow"><stop stop-color="#e8c181" stop-opacity=".26"/><stop offset="1" stop-color="#e8c181" stop-opacity="0"/></radialGradient>
-          </defs>
-          <path fill="url(#night)" d="M0 0h600v900H0z"/>
-          <circle cx="400" cy="175" r="40" fill="#ced7d9" opacity=".28"/>
-          <path d="M0 620Q240 550 600 670V900H0Z" fill="#263b47"/>
-          <path d="M0 730Q280 610 600 690V900H0Z" fill="#344854"/>
-          <g fill="#0f202b">
-            <path d="M40 250L-35 650H115ZM110 355L48 675H177ZM560 280L470 720H650ZM500 400L435 750H565Z"/>
-          </g>
-          <path d="M225 554h220v161H225z" fill="#15202a"/>
-          <path d="M195 558L330 456l144 102z" fill="#b5c3c9"/>
-          <path d="M206 558L330 474l133 84z" fill="#101b24"/>
-          <path d="M391 460h20v62h-20z" fill="#17252e"/>
-          <circle cx="337" cy="636" r="126" fill="url(#glow)"/>
-          <g fill="#e3b779"><path d="M259 589h30v41h-30ZM369 589h30v41h-30ZM314 651h33v64h-33Z"/></g>
-          <g stroke="#29323a" stroke-width="3"><path d="M274 589v41m-15-20h30m95-21v41m-15-20h30"/></g>
-          <path d="M315 717Q245 786 355 900H467Q304 794 348 717Z" fill="#a7b6bb" opacity=".22"/>
-          <g fill="#e0e8e9" opacity=".45">
-            <circle cx="84" cy="164" r="2"/><circle cx="213" cy="227" r="2"/><circle cx="311" cy="120" r="1.5"/><circle cx="516" cy="180" r="2"/><circle cx="156" cy="418" r="2.5"/><circle cx="340" cy="345" r="2"/><circle cx="459" cy="400" r="1.5"/><circle cx="85" cy="742" r="2"/><circle cx="510" cy="803" r="2.5"/><circle cx="218" cy="604" r="1.5"/>
-          </g>
-        </svg>
-        <span class="scene-caption">风雪之中，一盏灯。</span>
-      </div>
+    <div class="game-shell" data-view="title" data-phase="ready">
+      <figure class="scenery" data-age="0">
+        <img class="scene-art-image" src="/scenes/forest-inn.webp" alt="覆雪的云杉林中，一条小路通向亮着灯的石木旅馆。" decoding="async" />
+        <div class="scene-targets" aria-label="场景中的行动" hidden inert></div>
+        <figcaption class="scene-caption"><span class="scene-caption-text">云杉林 · 通往旅馆的小路</span><button class="scene-view-button" type="button" aria-label="放大当前场景图">查看完整场景</button></figcaption>
+      </figure>
       <main id="app"></main>
     </div>
     <noscript>请启用 JavaScript 以运行游戏。</noscript>

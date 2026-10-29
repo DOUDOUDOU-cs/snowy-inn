@@ -1,4 +1,4 @@
-export type SceneId = "arrival" | "forest" | "ruins" | "tiredSearch" | "ringFind" | "ringUncovered" | "portrait" | "doorplates" | "entrance" | "well" | "ropeSlips" | "ropeOnWindlass" | "ropeWrapped" | "ropeWoundOnce" | "ropeWoundTwice" | "ringDropped" | "silverKey" | "reception" | "emptyDesk" | "newGuest" | "innkeeperEnding" | "hallPortrait" | "registry" | "checkIn" | "keyHandover" | "guestRoom" | "nightNoise" | "hallway" | "neighborDoor" | "neighborRoom" | "morningRoom" | "wardrobe" | "wardrobeUntangled" | "cabinet" | "photoFind" | "basementDoor" | "basementStairs" | "basementShore" | "floodedPassage" | "drainHole" | "fleshCorridor" | "brokenPillar" | "wallTap" | "underwater" | "underwaterRescue" | "recoveryRoom" | "lingeringNight" | "drownedEnding" | "confrontationOpening" | "emilyAnswer" | "truthHub" | "weddingMemory" | "snowNight" | "whyTheyStayed" | "edwardAnswer" | "identityAnswer" | "identityDoubt" | "innNature" | "checkoutHint" | "checkoutEnding" | "rescueQuestion" | "breakfastOffer" | "breakfastPlate" | "breakfastInspect" | "breakfastResult" | "groundHall" | "kitchenThreshold" | "deskDrawer" | "escape";
+export type SceneId = "arrival" | "forest" | "ruins" | "tiredSearch" | "ringFind" | "ringUncovered" | "portrait" | "doorplates" | "entrance" | "well" | "ropeSlips" | "ropeOnWindlass" | "ropeWrapped" | "ropeWoundOnce" | "ropeWoundTwice" | "ringDropped" | "silverKey" | "reception" | "emptyDesk" | "newGuest" | "innkeeperEnding" | "hallPortrait" | "registry" | "checkIn" | "keyHandover" | "guestRoom" | "nightNoise" | "hallway" | "neighborDoor" | "neighborRoom" | "neighborWater" | "neighborWaterAfterDrink" | "morningRoom" | "wardrobe" | "wardrobeUntangled" | "cabinet" | "photoFind" | "basementDoor" | "basementStairs" | "basementShore" | "floodedPassage" | "drainHole" | "fleshCorridor" | "brokenPillar" | "wallTap" | "wallVoice" | "wallVoiceReply" | "underwater" | "underwaterRescue" | "recoveryRoom" | "lingeringNight" | "drownedEnding" | "confrontationOpening" | "emilyAnswer" | "truthHub" | "kitchenQuestion" | "banquetQuestion" | "weddingMemory" | "snowNight" | "whyTheyStayed" | "edwardAnswer" | "identityAnswer" | "identityDoubt" | "innNature" | "checkoutHint" | "checkoutEnding" | "rescueQuestion" | "breakfastOffer" | "breakfastPlate" | "breakfastInspect" | "breakfastResult" | "groundHall" | "nightKitchen" | "nightKitchenTalk" | "nightKitchenMeat" | "kitchenThreshold" | "banquetDoor" | "banquetHall" | "banquetTable" | "banquetEcho" | "deskDrawer" | "escape";
 export type ItemId = "ring" | "portrait" | "silverKey" | "roomKey" | "oldLedger" | "bronzeKey" | "adultPhoto";
 
 export interface GameState {
@@ -38,6 +38,14 @@ export interface GameState {
     innNatureHeard: boolean;
     checkoutHintSeen: boolean;
     checkedOut: boolean;
+    // 2.0 新场景标记可缺省，旧版自动存档仍能直接读取。
+    neighborWaterSeen?: boolean;
+    neighborWaterDrank?: boolean;
+    nightKitchenSeen?: boolean;
+    nightKitchenSpoken?: boolean;
+    banquetTableSeen?: boolean;
+    banquetEchoHeard?: boolean;
+    basementVoiceHeard?: boolean;
   };
 }
 

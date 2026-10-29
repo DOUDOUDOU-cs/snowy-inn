@@ -17,15 +17,21 @@ const walk: Choice = {
 };
 const toInn: Choice = { id: "approach", text: "向旅馆走去", next: "entrance" };
 const toRuins: Choice = { id: "ruins", text: "回到村庄遗迹", next: "ruins" };
+// 玩家已经见过足够多的变化后，可以把剩余的赶路合并为一次明确决定。
+const keepWalking: Choice = {
+  id: "keep-walking", text: "不再停下，沿路一直走", next: "escape",
+  available: state => !state.flags.enteredInn && state.forestSteps >= 5 && state.forestSteps < 10,
+  apply: state => ({ ...state, forestSteps: 10 }),
+};
 
 const forestParagraphs: Record<number, string[]> = {
   1: ["你收回目光，继续向森林深处走去。", "暗夜的密林和乌鸦的叫声，逐渐扰乱了你的判断。你已经说不清自己走了多久。", "模模糊糊中，前方又出现了那间旅馆。"],
-  2: ["你绕开路边折断的树枝，又走了很远。", "灯光再次浮现在树影之间。那根折断的树枝，就在你的脚边。"],
+  2: ["你绕开路边折断的树枝，又走了很远。", "灯光再次浮现在树影之间。那根折断的树枝，就在你的脚边。", "旅馆门前的漆面有些剥落。你记得刚才走过时，那里还是光滑的。"],
   4: ["你沿着另一侧的林缘走去。", "雪地里留着一串脚印。你停下比了比，鞋底的缺口和你的完全一样。"],
-  5: ["乌鸦从树枝上飞起，落向前方。", "走近后，你看见那棵树上仍蹲着一只乌鸦，脚下压着同一根弯曲的枝条。"],
+  5: ["乌鸦从树枝上飞起，落向前方。", "走近后，你看见那棵树上仍蹲着一只乌鸦，脚下压着同一根弯曲的枝条。", "灯下的招牌褪了色，屋檐边垂着一块开裂的旧木板。树林却没有同样衰老。"],
   6: ["你选了背对灯光的方向。", "走过一段缓坡，窗里的光却从正前方照了过来。"],
   7: ["一块歪斜的路牌立在雪里，字迹已经磨损。", "你从左侧绕过去。再次碰到它时，牌面朝向了相反的方向。"],
-  8: ["你低下头，只盯着自己的脚步。", "鞋尖踢到一根折断的树枝。你还记得它的形状。"],
+  8: ["你低下头，只盯着自己的脚步。", "鞋尖踢到一根折断的树枝。你还记得它的形状。", "旅馆的一扇窗已被木板钉住。招牌斜挂着，像在风雪里站了几十年。唯独门内的灯仍亮着。"],
   9: ["旅馆又出现在前面，窗户里的光依然温暖。", "你没有停下。风把身后的脚印一点点填平。"],
 };
 // 进过旅馆后的林路仍可探索，但不再通向「一直向前」结局。
@@ -57,23 +63,23 @@ export const openingScenes: Record<SceneId, (state: GameState) => Scene> = {
             : forestParagraphs[state.forestSteps] ?? ["穿过树影，那间旅馆仍然出现在道路尽头。"]),
           ...(state.flags.enteredInn && forestAfterEntry[state.forestSteps] ? [forestAfterEntry[state.forestSteps]] : []),
         ],
-    choices: [toInn, state.flags.enteredInn ? { ...walk, text: "继续寻找出路" } : walk, { ...toRuins, available: current => current.forestSteps >= 3 }],
+    choices: [toInn, state.flags.enteredInn ? { ...walk, text: "继续寻找出路" } : walk, keepWalking, { ...toRuins, available: current => current.forestSteps >= 3 }],
   }),
   ruins: state => ({
     location: "村庄遗迹", title: state.time === "night" ? "雪下的石头" : "荒废的村庄",
     paragraphs: state.time === "night"
       ? ["林木之间，你看见了不一样的东西：几块墓碑，以及石材制成的村庄残骸。", "墙体大半已经坍塌。你靠近一处背风的角落，疲惫让视线有些模糊。", ...(state.flags.enteredInn ? ["你明明背对旅馆而行，却又走到了这些石头前。"] : [])]
-      : ["天亮后，遗迹的轮廓逐渐清楚。这片地方以前似乎是一座村庄。", "几栋小屋已经半塌，门牌或悬挂在墙上，或落在积雪里。", ...(state.flags.enteredInn ? ["你从旅馆门前出发，还是绕回了这片遗迹。"] : [])],
+      : ["天亮后，遗迹的轮廓逐渐清楚。这片地方以前似乎是一座村庄。", "几栋小屋已经半塌，门牌或悬挂在墙上，或落在积雪里。", ...(state.flags.enteredInn ? ["你从旅馆门前出发，还是绕回了这片遗迹。"] : state.forestSteps >= 5 ? ["林间那间旅馆的屋檐比初见时更旧，眼前的残屋却没有继续坍塌。"] : [])],
     choices: state.time === "night" ? [
       { id: "search", text: "强撑着调查一番", next: "tiredSearch" },
       { id: "rest", text: "稍作休息，再搜寻附近", next: "ringFind", available: current => !current.flags.ringFound },
       { id: "wait-morning", text: "在背风处休息到天亮", next: "ruins", apply: current => ({ ...current, day: current.day + 1, time: "morning", flags: { ...current.flags, ruinsSeen: true } }) },
-      state.flags.enteredInn ? { ...walk, text: "继续寻找出路" } : walk, toInn,
+      state.flags.enteredInn ? { ...walk, text: "继续寻找出路" } : walk, keepWalking, toInn,
     ] : [
       { id: "house", text: state.flags.portraitSeen ? "再看看半塌的小屋" : "调查半塌的小屋", next: "portrait", apply: current => ({ ...addItem(current, "portrait"), flags: { ...current.flags, portraitSeen: true, ruinsSeen: true } }) },
       { id: "doorplates", text: "查看散落的门牌", next: "doorplates", apply: current => ({ ...current, flags: { ...current.flags, doorplatesSeen: true, ruinsSeen: true } }) },
       { id: "search-ring", text: "查看废墟中的亮点", next: "ringFind", available: current => !current.flags.ringFound },
-      state.flags.enteredInn ? { ...walk, text: "继续寻找出路" } : walk, toInn,
+      state.flags.enteredInn ? { ...walk, text: "继续寻找出路" } : walk, keepWalking, toInn,
     ],
   }),
   tiredSearch: () => ({
@@ -111,11 +117,12 @@ export const openingScenes: Record<SceneId, (state: GameState) => Scene> = {
   }),
   entrance: state => ({
     location: "旅馆外", title: "孤零零的旅馆",
-    paragraphs: ["旅馆的规模不小，周围却看不到完整的村庄。门边不远处，有几口水井。", ...(state.flags.ruinsSeen ? ["想起那片村庄遗迹，你忽然觉得水井离旅馆太近了。"] : []), ...(state.flags.enteredInn ? ["你已经认得门内的暖意。回头望向来路，林间的脚印却像都朝着旅馆而来。"] : []), ...(state.flags.enteredInn && state.forestSteps >= 13 ? ["我不想再踏上那条只会绕回这里的路。也许该从旅馆本身寻找答案。"] : []), "再往前，就是旅馆的门。"],
+    paragraphs: ["旅馆的规模不小，周围却看不到完整的村庄。门边不远处，有几口水井。", ...(state.flags.ruinsSeen ? ["想起那片村庄遗迹，你忽然觉得水井离旅馆太近了。"] : []), ...(state.flags.enteredInn ? ["你已经认得门内的暖意。回头望向来路，林间的脚印却像都朝着旅馆而来。", ...(state.forestSteps >= 5 ? ["门框上的漆又平整了。你记得自己在林中看见过那些裂痕。"] : [])] : state.forestSteps >= 8 ? ["门边的木板已被风蚀得发灰，招牌斜挂着；灯光却像第一次看见时一样亮。"] : state.forestSteps >= 5 ? ["招牌上的字迹比初见时淡了许多，屋檐裂开一道细缝。"] : state.forestSteps >= 2 ? ["门框上的新漆不知何时起了皮。"] : []), ...(state.flags.enteredInn && state.forestSteps >= 13 ? ["我不想再踏上那条只会绕回这里的路。也许该从旅馆本身寻找答案。"] : []), "再往前，就是旅馆的门。"],
     choices: [
       { id: "well", text: "走近水井看看", next: "well" },
       { id: "enter", text: "进入旅馆", next: "reception", apply: current => ({ ...current, flags: { ...current.flags, enteredInn: true, emilySawRing: current.flags.emilySawRing || hasItem(current, "ring") } }) },
       { ...walk, text: state.flags.enteredInn ? "沿来路试着离开" : "离开门前，继续赶路" },
+      keepWalking,
       { ...toRuins, available: current => current.forestSteps >= 3 },
     ],
   }),
@@ -126,6 +133,7 @@ export const openingScenes: Record<SceneId, (state: GameState) => Scene> = {
       paragraphs: [
         "井壁由石砖砌成，上面很潮湿，长满了苔藓。水面平静，看不出异样。",
         ...(state.time === "morning" ? ["天光下，你发现藤蔓已经爬到接近井沿的位置，像是很久没有人打理。"] : []),
+        ...(state.flags.neighborWaterDrank ? ["潮湿的石沿让你想起隔壁那杯凉而微涩的水。这里只能闻到苔藓，无法确定它们是否相连。"] : state.flags.neighborWaterSeen ? ["井水的表面与你在隔壁客房看到的那杯水一样平静。"] : []),
         ...(keyReady ? ["井绳似乎被什么东西拉得很紧。"] : []),
       ],
       choices: [
@@ -193,6 +201,7 @@ export const openingScenes: Record<SceneId, (state: GameState) => Scene> = {
       "前台的小姐抬起头：“……当然。”",
       ...(state.flags.portraitSeen ? ["她的眉眼，让你想起画像里那个叫艾米莉的孩子。"] : []),
       ...(hasItem(state, "ring") ? ["她的目光扫过你手里的戒指，脸上浮现了一瞬讶异，很快又恢复了原样。"] : []),
+      ...(state.forestSteps >= 5 ? ["你回头看向门。室内的木框打磨得很平整，看不见刚才在外面见到的剥漆和裂痕。"] : []),
     ],
     choices: state.flags.checkedIn ? [
       { id: "approach-empty-desk", text: "不知不觉走到柜台后", next: "emptyDesk", available: current => current.fusion >= 5 && current.flags.choseToStay },
@@ -293,7 +302,7 @@ export const openingScenes: Record<SceneId, (state: GameState) => Scene> = {
     paragraphs: state.flags.firstNightSlept
       ? ["白天再看，走廊似乎比昨夜更长。大部分房门仍紧闭着。", "隔壁那扇门依旧虚掩，门缝里露出一线灯光。"]
       : ["走廊比想象中长。门一扇接着一扇，大多紧闭，墙上挂着保养得很好的肖像画。", "那阵挪动家具的声音停了。隔壁的一扇门却没有完全合拢。"],
-    choices: [{ id: "neighbor-door", text: "走近虚掩的房门", next: "neighborDoor" }, { id: "back-room", text: "回自己的房间", next: state.flags.firstNightSlept ? "morningRoom" : "guestRoom" }],
+    choices: [{ id: "neighbor-door", text: "走近虚掩的房门", next: "neighborDoor" }, { id: "follow-night-sound", text: "沿楼梯寻找楼下的响动", next: "groundHall", available: current => current.time === "night" }, { id: "back-room", text: "回自己的房间", next: state.flags.firstNightSlept ? "morningRoom" : "guestRoom" }],
   }),
   neighborDoor: state => ({
     location: "二楼 · 隔壁", title: "虚掩的门",
@@ -308,12 +317,28 @@ export const openingScenes: Record<SceneId, (state: GameState) => Scene> = {
   neighborRoom: state => ({
     location: "二楼 · 隔壁", title: "空着的房间",
     paragraphs: state.flags.firstNightSlept
-      ? ["屋里仍然没人，床头灯却亮着。靠墙的衣柜门虚掩着。", "你正要走近，木板下又响起一声轻微的摩擦。"]
-      : ["屋里只有一张铺好的床和靠墙的衣柜。没有人，也没有家具被拖动的痕迹。", "你屏住呼吸，木板下面传来一声短促的摩擦，然后又归于安静。"],
+      ? ["屋里没有人，床头灯却亮着。靠墙的衣柜门虚掩着，床边放着半杯水。", "你正要走近，木板下又响起一声轻微的摩擦。"]
+      : ["屋里只有一张铺好的床、靠墙的衣柜和床边半杯水。你没有看见人，也找不到家具被拖动的痕迹。", "你屏住呼吸，木板下面传来一声短促的摩擦，然后又归于安静。"],
     choices: [
+      { id: "inspect-neighbor-water", text: "观察床边的水", next: "neighborWater", apply: current => ({ ...current, flags: { ...current.flags, neighborWaterSeen: true } }) },
       { id: "search-wardrobe", text: "打开虚掩的衣柜", next: "wardrobe", available: current => current.flags.firstNightSlept && !hasItem(current, "bronzeKey") },
       { id: "back-hallway", text: "回到走廊", next: "hallway" },
     ],
+  }),
+  neighborWater: state => ({
+    location: "二楼 · 隔壁", title: "床头的半杯水",
+    paragraphs: ["杯沿干净，杯壁却是凉的。水面静得看不出刚才那阵响动来自哪里。", state.flags.neighborWaterDrank
+      ? "你喝过一口，水位比初见时低了些；屋里仍没有人出现。"
+      : "长途赶路后，你有些口渴。杯中的水看不出异样，但你不知道它放在这里多久了。"],
+    choices: [
+      { id: "drink-neighbor-water", text: "喝一口水", next: "neighborWaterAfterDrink", available: current => !current.flags.neighborWaterDrank, apply: current => ({ ...current, flags: { ...current.flags, neighborWaterDrank: true } }) },
+      { id: "leave-neighbor-water", text: "把水杯留在原处", next: "neighborRoom" },
+    ],
+  }),
+  neighborWaterAfterDrink: () => ({
+    location: "二楼 · 隔壁", title: "凉水的味道",
+    paragraphs: ["水很凉，入口时有一点微涩，舌根留下很轻的铁味。你放下杯子，仍听见木板下传来断断续续的摩擦声。", "你没有看到屋里有别人。"],
+    choices: [{ id: "leave-neighbor-water", text: "回头再看这间屋子", next: "neighborRoom" }],
   }),
   morningRoom: state => ({
     location: "二楼 · 客房", title: state.flags.peacefulSleepUsed ? "又一个清晨" : "雪后的清晨",
@@ -374,22 +399,22 @@ export const openingScenes: Record<SceneId, (state: GameState) => Scene> = {
   }),
   breakfastPlate: state => ({
     location: "旅馆餐桌", title: "盖子下面",
-    paragraphs: ["盘中是几段煎得金黄的香肠，旁边放着面包。", "香气很浓，却有一种你说不上来的甜味。", ...(state.flags.foodExamined ? ["切口处的肉色偏深，闻起来也不像你熟悉的猪肉。"] : [])],
+    paragraphs: ["盘中是几段煎得金黄的香肠，旁边放着面包。", "香气很浓，却有一种你说不上来的甜味。", ...(state.flags.nightKitchenSeen ? ["你想起昨夜厨房案板上的半只野猪。"] : []), ...(state.flags.foodExamined ? ["切口处的肉色偏深，闻起来也不像你熟悉的猪肉。"] : [])],
     choices: [
       { id: "inspect-food", text: "仔细看看香肠", next: "breakfastInspect", apply: current => ({ ...current, flags: { ...current.flags, foodExamined: true } }) },
       { id: "eat-breakfast", text: "把早餐吃下去", next: "breakfastResult", apply: current => ({ ...current, breakfast: "eaten", fusion: Math.min(6, current.fusion + 1) }) },
       { id: "pretend-breakfast", text: "假装吃了，悄悄放下餐具", next: "breakfastResult", apply: current => ({ ...current, breakfast: "pretended" }) },
     ],
   }),
-  breakfastInspect: () => ({
+  breakfastInspect: state => ({
     location: "旅馆餐桌", title: "不熟悉的肉香",
-    paragraphs: ["你拨开香肠外层，肉色比想象中更深。", "那股甜味混在热气里，盖过了本该有的猪肉气味。"],
+    paragraphs: ["你拨开香肠外层，肉色比想象中更深。", "那股甜味混在热气里，盖过了本该有的猪肉气味。", ...(state.flags.nightKitchenSeen ? ["昨夜那半只野猪就摆在案板上。现在盘里的肉，却让你无法把两者对上。"] : [])],
     choices: [{ id: "back-plate", text: "再看看盘子", next: "breakfastPlate" }, { id: "eat-breakfast", text: "还是把早餐吃下去", next: "breakfastResult", apply: current => ({ ...current, breakfast: "eaten", fusion: Math.min(6, current.fusion + 1) }) }, { id: "pretend-breakfast", text: "假装吃了", next: "breakfastResult", apply: current => ({ ...current, breakfast: "pretended" }) }],
   }),
   breakfastResult: state => ({
     location: "旅馆餐桌", title: state.breakfast === "eaten" ? "留在胃里的暖意" : "没动的早餐",
     paragraphs: state.breakfast === "eaten"
-      ? ["热气沿着喉咙落下，赶路的疲惫缓了些。", "你忽然觉得旅馆里比刚才更暖。那张餐桌，像是你已经坐过许多次。", "前台小姐端着餐盘去了厨房。"]
+      ? ["热气沿着喉咙落下，赶路的疲惫缓了些。", ...(state.flags.nightKitchenSeen ? ["肉的纤维和味道更像你尝过的鹿肉，不像昨夜她在厨房处理的野猪。你又咬了一口，仍然如此。"] : []), "你忽然觉得旅馆里比刚才更暖。那张餐桌，像是你已经坐过许多次。", "前台小姐端着餐盘去了厨房。"]
       : state.breakfast === "pretended"
         ? ["你趁她转身，悄悄把餐具放好，做出已经吃过的样子。", "前台小姐没有追问，端着盘子往厨房去了。"]
         : ["你谢绝了早餐。她只说“路上小心”，随后端着盘子往厨房去了。", "大厅里只剩下你的脚步声。"],
@@ -401,13 +426,72 @@ export const openingScenes: Record<SceneId, (state: GameState) => Scene> = {
   }),
   groundHall: state => ({
     location: "一楼 · 走廊", title: "画框排成的长廊",
-    paragraphs: ["走廊两侧挂着一幅幅肖像画，画框上的灰尘很少。", "尽头有一道通往厨房的门，里面传来碗碟相碰的轻响。", ...(state.flags.neighborRoomSeen ? ["你记起隔壁房间地板下的声音，发现墙角还有一道向下的窄楼梯。"] : ["墙角另有一道向下的窄楼梯。越往下，光线越暗。"])],
-    choices: [{ id: "kitchen-threshold", text: "走到厨房门口", next: "kitchenThreshold" }, { id: "basement-door", text: "沿窄楼梯走向地下室", next: "basementDoor" }, { id: "back-reception", text: "回到前台", next: "reception" }],
+    paragraphs: ["走廊两侧挂着一幅幅肖像画，画框上的灰尘很少。", state.time === "night" ? "厨房门下透出光，断续的剁切声从里面传来。" : "尽头有一道通往厨房的门，里面传来碗碟相碰的轻响。", "厨房旁是一扇较宽的旧双开门。门楣上还留着褪色的花饰。", ...(state.flags.neighborRoomSeen ? ["你记起隔壁房间地板下的声音，发现墙角还有一道向下的窄楼梯。"] : ["墙角另有一道向下的窄楼梯。越往下，光线越暗。"])],
+    choices: [
+      { id: "kitchen-threshold", text: state.time === "night" ? "推开亮着灯的厨房门" : "走到厨房门口", next: state.time === "night" ? "nightKitchen" : "kitchenThreshold", apply: current => current.time === "night" ? { ...current, flags: { ...current.flags, nightKitchenSeen: true } } : current },
+      { id: "banquet-door", text: "查看厨房旁的旧双开门", next: "banquetDoor" },
+      { id: "basement-door", text: "沿窄楼梯走向地下室", next: "basementDoor" },
+      { id: "back-hallway", text: "从楼梯回到二楼走廊", next: "hallway", available: current => current.time === "night" && current.flags.checkedIn },
+      { id: "back-reception", text: "回到前台", next: "reception" },
+    ],
+  }),
+  nightKitchen: () => ({
+    location: "一楼 · 夜间厨房", title: "案板上的野猪",
+    paragraphs: ["半只剥了皮的野猪横在案板上。切下的肉被分成小块，一部分已经没入绞肉机。", "前台小姐正在制作香肠，袖口和围裙上沾着血。刀落下时，你在楼上听见的闷响又响了一次。", "厨房另一侧有一道通向旧双开门方向的窄门。"],
+    choices: [
+      { id: "greet-night-kitchen", text: "和她打声招呼", next: "nightKitchenTalk", apply: current => ({ ...current, flags: { ...current.flags, nightKitchenSpoken: true } }) },
+      { id: "peek-banquet-door", text: "从侧门看看那扇旧双开门", next: "banquetDoor" },
+      { id: "leave-night-kitchen", text: "不惊动她，退回走廊", next: "groundHall" },
+    ],
+  }),
+  nightKitchenTalk: () => ({
+    location: "一楼 · 夜间厨房", title: "明天的早饭",
+    paragraphs: ["她回头看见你，停下刀，笑了笑。", "“我在准备明天的早饭。是不是吵到你了？”", "案板上的野猪还在，血顺着木纹停在绞肉机旁。"],
+    choices: [
+      { id: "ask-night-meat", text: "问她这半只野猪从哪里来", next: "nightKitchenMeat" },
+      { id: "leave-night-kitchen", text: "说自己睡不着，回到走廊", next: "groundHall" },
+    ],
+  }),
+  nightKitchenMeat: () => ({
+    location: "一楼 · 夜间厨房", title: "雪前留下的肉",
+    paragraphs: ["“雪下大以前送来的。”她把手上的血擦在围裙上，视线又落回案板。", "你没有在旅馆外见过猎人，也不知道这场雪是什么时候开始的。"],
+    choices: [{ id: "leave-night-kitchen", text: "不再打扰她，退回走廊", next: "groundHall" }],
   }),
   kitchenThreshold: state => ({
     location: "一楼 · 厨房门口", title: "门缝里的声音",
-    paragraphs: ["厨房里有人在收拾碗碟。你从门缝看见案板和绞肉机，台面被仔细擦过，木纹深处却仍有暗色痕迹。", ...(state.flags.foodExamined ? ["那股肉香与你在餐桌前闻到的一样。"] : []), "里面的脚步声渐渐靠近。"],
-    choices: [{ id: "back-ground-hall", text: "退回一楼走廊", next: "groundHall" }],
+    paragraphs: ["厨房里有人在收拾碗碟。你从门边看见案板和绞肉机，台面被仔细擦过，木纹深处却仍有暗色痕迹。", ...(state.flags.foodExamined ? ["那股肉香与你在餐桌前闻到的一样。"] : []), "里面的脚步声渐渐靠近。侧门通向旁边的旧宴会厅。"],
+    choices: [{ id: "back-ground-hall", text: "退回一楼走廊", next: "groundHall" }, { id: "through-banquet-side", text: "沿侧门回到旧宴会厅", next: "banquetHall", available: current => current.flags.firstNightSlept }],
+  }),
+  banquetDoor: state => ({
+    location: "一楼 · 旧双开门", title: "褪色的花饰",
+    paragraphs: state.flags.firstNightSlept
+      ? ["双开门上的花饰褪了色。门闩已经松开，门缝里只见一张蒙灰的长桌。", ...(state.flags.nightKitchenSeen ? ["你记得昨夜从厨房侧门也能看见这里。"] : [])]
+      : ["双开门上的花饰褪了色，门把却推不动。你贴近门板，听见一声很轻的杯盏碰响。", "厨房的侧门也通向这边，门内的声音很快又停了。"],
+    choices: [
+      { id: "enter-banquet", text: "走进旧宴会厅", next: "banquetHall", available: current => current.flags.firstNightSlept },
+      { id: "back-night-kitchen", text: "从侧门回到夜间厨房", next: "nightKitchen", available: current => current.time === "night" && !current.flags.firstNightSlept },
+      { id: "back-ground-hall", text: "退回一楼走廊", next: "groundHall" },
+    ],
+  }),
+  banquetHall: state => ({
+    location: "一楼 · 旧宴会厅", title: "留在桌边的座位",
+    paragraphs: ["厅里没有人。长桌和餐椅积着薄灰，几把椅子却被推向门口，地上留着较新的拖痕。", "一端的桌面有几圈深色杯印，厨房侧门就在不远处。", ...(hasItem(state, "oldLedger") ? ["你想起账本里为婚宴准备的啤酒、蛋糕与香肠。"] : []), ...(state.flags.weddingStoryHeard ? ["艾米莉说过，婚宴之后大家在这里住了一晚。"] : [])],
+    choices: [
+      { id: "inspect-banquet-table", text: "查看杯印和椅脚拖痕", next: "banquetTable", apply: current => ({ ...current, flags: { ...current.flags, banquetTableSeen: true } }) },
+      { id: "listen-banquet", text: "停下来听一听", next: "banquetEcho", available: current => !!current.flags.banquetTableSeen, apply: current => ({ ...current, flags: { ...current.flags, banquetEchoHeard: true } }) },
+      { id: "through-kitchen-side", text: "从侧门走到厨房门口", next: "kitchenThreshold" },
+      { id: "back-banquet-door", text: "从双开门回到走廊", next: "banquetDoor" },
+    ],
+  }),
+  banquetTable: state => ({
+    location: "一楼 · 旧宴会厅", title: "通向门口的拖痕",
+    paragraphs: ["椅脚下的木地板有两道浅痕，一直朝双开门延伸。别处落着灰，浅痕里却很干净。", "桌上的杯印已经渗进木头。仅凭这些，你不知道那晚是谁移动了椅子。", ...(hasItem(state, "oldLedger") ? ["账本记录了婚宴用的几桶啤酒，却没有记下客人离席的时间。"] : [])],
+    choices: [{ id: "back-banquet", text: "回到长桌旁", next: "banquetHall" }],
+  }),
+  banquetEcho: () => ({
+    location: "一楼 · 旧宴会厅", title: "杯盏之后",
+    paragraphs: ["你站着没动，听见两只杯子轻轻碰在一起，随后是一段被椅脚声盖住的话。", "“……先把门打开。”", "声音停了。桌边仍然空着，通向门口的拖痕就在你脚下。"],
+    choices: [{ id: "back-banquet", text: "再看一眼空厅", next: "banquetHall" }, { id: "back-banquet-door", text: "离开旧宴会厅", next: "banquetDoor" }],
   }),
   deskDrawer: () => ({
     location: "旅馆前台", title: "抽屉里的旧账本",
@@ -430,9 +514,9 @@ export const openingScenes: Record<SceneId, (state: GameState) => Scene> = {
     paragraphs: ["你跨过门槛，顺着螺旋楼梯往下走，酒精的气息越来越浓。", "砌得整齐的石砖渐渐变成粗糙的石块，缝隙里伸出藤蔓。台阶上开始有积水。"],
     choices: [{ id: "descend", text: "继续走到台阶尽头", next: "basementShore" }, { id: "back-basement-door", text: "返回地下室门前", next: "basementDoor" }],
   }),
-  basementShore: () => ({
+  basementShore: state => ({
     location: "旅馆 · 地下室深处", title: "没有酒桶的酒窖",
-    paragraphs: ["台阶尽头没有酒桶，只有一片浅浅的水。水汽贴着石壁上升，空气中有淡淡的啤酒清香。", "你站在水边，能看到更深处有一段黑暗的通道。水面几乎不动。"],
+    paragraphs: ["台阶尽头没有酒桶，只有一片浅浅的水。水汽贴着石壁上升，空气中有淡淡的啤酒清香。", "你站在水边，能看到更深处有一段黑暗的通道。水面几乎不动。", ...(state.flags.neighborWaterDrank ? ["潮气钻进嘴里，那一点凉涩让你想起隔壁床头的水。这里又混着酒香，你不能确定两处水是否相同。"] : [])],
     choices: [{ id: "wade", text: "涉水走向黑暗的通道", next: "floodedPassage" }, { id: "back-basement-stairs", text: "沿台阶返回", next: "basementStairs" }],
   }),
   floodedPassage: state => ({
@@ -451,6 +535,7 @@ export const openingScenes: Record<SceneId, (state: GameState) => Scene> = {
     choices: [
       { id: "inspect-pillar", text: "仔细看倒塌的石柱", next: "brokenPillar", apply: current => ({ ...current, flags: { ...current.flags, pillarExamined: true } }) },
       { id: "inspect-tap", text: "查看墙上的龙头", next: "wallTap", apply: current => ({ ...current, flags: { ...current.flags, tapExamined: true } }) },
+      { id: "listen-wall", text: "停下，听墙里的声音", next: "wallVoice", apply: current => ({ ...current, flags: { ...current.flags, basementVoiceHeard: true } }) },
       { id: "back-passage", text: "沿水道返回", next: "floodedPassage" },
     ],
   }),
@@ -463,6 +548,19 @@ export const openingScenes: Record<SceneId, (state: GameState) => Scene> = {
     location: "旅馆 · 地下室深处", title: "墙上的龙头",
     paragraphs: ["龙头下滴着带有酒香的液体，滴落处泛起很慢的涟漪。", "你伸手扶住墙面，手掌下的纹理竟轻轻起伏了一下。"],
     choices: [{ id: "back-flesh", text: "离开龙头", next: "fleshCorridor" }],
+  }),
+  wallVoice: () => ({
+    location: "旅馆 · 地下室深处", title: "墙后断续的声音",
+    paragraphs: ["你避开滴水声，侧耳贴近混着木纹的石壁。几下轻微的敲击之后，话语从更深处挤出来。", "“……外面……雪停了吗？”", "你分不清声音是从墙里、楼上，还是沿着水道传来的。"],
+    choices: [
+      { id: "answer-wall-voice", text: "告诉它，外面还在下雪", next: "wallVoiceReply" },
+      { id: "back-flesh", text: "不作声，退回通道", next: "fleshCorridor" },
+    ],
+  }),
+  wallVoiceReply: () => ({
+    location: "旅馆 · 地下室深处", title: "没有说完的话",
+    paragraphs: ["你说雪还没有停。石壁下传来三下慢而轻的敲击。", "“还是……门……”后半句话被水声盖住。", "你再问是谁，墙里只剩滴水。"],
+    choices: [{ id: "back-flesh", text: "记下声音，回到水道", next: "fleshCorridor" }],
   }),
   underwater: state => ({
     location: "地下室 · 水下", title: "灯光消失的地方",
@@ -499,7 +597,7 @@ export const openingScenes: Record<SceneId, (state: GameState) => Scene> = {
   }),
   confrontationOpening: state => ({
     location: "旅馆前台", title: "她知道你去了下面",
-    paragraphs: ["你提起地下室里像肉一样的墙，还有那股不散的酒香。", ...(state.flags.pillarExamined ? ["你又说起那根与旧村庄相似的石柱。"] : []), "前台小姐的手停在登记簿上。“你去了下面？”"],
+    paragraphs: ["你提起地下室里像肉一样的墙，还有那股不散的酒香。", ...(state.flags.pillarExamined ? ["你又说起那根与旧村庄相似的石柱。"] : []), ...(state.flags.basementVoiceHeard ? ["你还听见墙后断续的人声，却不知道那是谁。"] : []), "前台小姐的手停在登记簿上。“你去了下面？”"],
     choices: [{ id: "press-emily", text: "问她那究竟是谁的房子", next: "emilyAnswer", apply: current => ({ ...current, flags: { ...current.flags, emilyAdmittedHouse: true } }) }, { id: "back-reception", text: "暂时不再追问", next: "reception" }],
   }),
   emilyAnswer: () => ({
@@ -518,10 +616,22 @@ export const openingScenes: Record<SceneId, (state: GameState) => Scene> = {
       { id: "ask-wedding", text: "问旧村庄的人后来怎样了", next: "weddingMemory" },
       { id: "ask-edward", text: "问爱德华如今在哪里", next: "edwardAnswer", available: current => current.flags.weddingStoryHeard || current.flags.doorplatesSeen },
       { id: "ask-identity", text: "问她还记得自己是谁吗", next: "identityAnswer" },
+      { id: "ask-kitchen", text: "问昨夜野猪和早餐为何对不上", next: "kitchenQuestion", available: current => !!current.flags.nightKitchenSeen && (current.breakfast === "eaten" || current.flags.foodExamined) },
+      { id: "ask-banquet", text: "问宴会厅里通向门口的拖痕", next: "banquetQuestion", available: current => !!current.flags.banquetTableSeen },
       { id: "ask-inn", text: "问旅馆究竟是什么", next: "innNature", available: current => current.flags.weddingStoryHeard, apply: current => ({ ...current, flags: { ...current.flags, innNatureHeard: true } }) },
       { id: "ask-leave", text: "问自己怎样才能离开", next: "checkoutHint", available: current => current.flags.innNatureHeard, apply: current => ({ ...current, flags: { ...current.flags, checkoutHintSeen: true } }) },
       { id: "back-reception", text: "暂时结束谈话", next: "reception" },
     ],
+  }),
+  kitchenQuestion: state => ({
+    location: "旅馆前台", title: "昨夜与今晨",
+    paragraphs: ["你说起昨夜厨房里的半只野猪，又说早餐香肠的肉色。", ...(state.breakfast === "eaten" ? ["“我吃过。味道更像鹿肉。”"] : ["“我拨开看过，和案板上的肉不同。”"]), "艾米莉看向厨房门：“我昨晚做的就是香肠。”", "你问她用的究竟是什么肉。她张了张口，最后只是说：“你昨夜真的来过？”"],
+    choices: [{ id: "back-dialogue", text: "把这句话记下，继续问", next: "truthHub" }],
+  }),
+  banquetQuestion: state => ({
+    location: "旅馆前台", title: "椅脚留下的痕迹",
+    paragraphs: ["你说起旧宴会厅里朝门口延伸的椅脚拖痕。", ...(state.flags.banquetEchoHeard ? ["你还提起那句没听清是谁说的“先把门打开”。"] : []), "“我记得大家坐到很晚。”艾米莉说。她想了想，又说：“那把椅子是谁挪的，我不记得了。”", "她没有否认你看到的痕迹，也没有看向宴会厅。"],
+    choices: [{ id: "back-dialogue", text: "继续问她别的事", next: "truthHub" }],
   }),
   weddingMemory: state => ({
     location: "旅馆前台", title: "婚礼那天",
@@ -600,7 +710,7 @@ export const openingScenes: Record<SceneId, (state: GameState) => Scene> = {
   escape: state => ({
     location: "森林之外", title: "你确实离开了这片森林",
     paragraphs: [
-      "你继续走，没有再向那盏灯靠近。",
+      "你继续走，没有再向那盏灯靠近。旅馆的木框、招牌和窗在每次回望时都更旧一些，最后连灯也被雪遮住。",
       "脚下的道路渐渐开阔。等你再次回过头，身后只剩下树木，那间旅馆没有再出现。",
       state.time === "morning" ? "晨光落在前方的路上。你继续赶路。" : "风雪还在下。你把衣领拉紧，继续赶路。",
     ],

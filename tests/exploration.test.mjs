@@ -461,3 +461,80 @@ test('高融合时仍可沿真相对话退房，身份疑问保留原设计的�
   assert.equal(state.scene, 'checkoutEnding');
   assert.ok(getScene(state).ending);
 });
+
+test('拒绝进入旅馆时外观逐步衰老，晚进门能看见内外矛盾', () => {
+  let state = createGame();
+  state = follow(state, 'walk', 'walk');
+  assert.ok(getScene(state).paragraphs.join('').includes('漆面'));
+  state = follow(state, 'walk', 'walk', 'walk');
+  assert.ok(getScene(state).paragraphs.join('').includes('招牌褪了色'));
+  state = follow(state, 'approach');
+  assert.ok(getScene(state).paragraphs.join('').includes('招牌上的字迹'));
+  state = follow(state, 'enter');
+  assert.ok(getScene(state).paragraphs.join('').includes('室内的木框'));
+});
+
+test('见过多次外观变化后可一次决定继续赶路，不必反复点击到第十次', () => {
+  let state = route('walk', 'walk', 'walk', 'walk', 'walk');
+  assert.equal(state.scene, 'forest');
+  assert.equal(getScene(state).choices.some(choice => choice.id === 'keep-walking'), true);
+  state = follow(state, 'keep-walking');
+  assert.equal(state.scene, 'escape');
+  assert.ok(getScene(state).paragraphs.join('').includes('更旧一些'));
+  const entered = route('approach', 'enter', 'leave-inn', 'walk', 'walk', 'walk', 'walk', 'walk');
+  assert.equal(getScene(entered).choices.some(choice => choice.id === 'keep-walking'), false);
+});
+
+test('隔壁房间的水可观察并喝一次，水井与地下室保留感官呼应', () => {
+  let state = route('approach', 'enter', 'start-check-in', 'finish-check-in', 'go-room', 'investigate', 'neighbor-door', 'enter-neighbor');
+  assert.ok(getScene(state).paragraphs.join('').includes('没有看见人'));
+  state = follow(state, 'inspect-neighbor-water');
+  assert.equal(state.flags.neighborWaterSeen, true);
+  state = follow(state, 'drink-neighbor-water');
+  assert.equal(state.flags.neighborWaterDrank, true);
+  assert.ok(getScene(state).paragraphs.join('').includes('铁味'));
+  state = follow(state, 'leave-neighbor-water', 'inspect-neighbor-water');
+  assert.equal(getScene(state).choices.some(choice => choice.id === 'drink-neighbor-water'), false);
+  state = follow(state, 'leave-neighbor-water', 'back-hallway', 'back-room', 'back-reception', 'leave-inn', 'well');
+  assert.ok(getScene(state).paragraphs.join('').includes('隔壁'));
+  assert.ok(getScene({ ...state, scene: 'basementShore' }).paragraphs.join('').includes('凉涩'));
+});
+
+test('第一夜可循声进入原设计厨房，早餐与野猪形成矛盾', () => {
+  let state = route('approach', 'enter', 'start-check-in', 'finish-check-in', 'go-room', 'lie-down', 'investigate', 'follow-night-sound', 'kitchen-threshold');
+  assert.equal(state.scene, 'nightKitchen');
+  assert.ok(getScene(state).paragraphs.join('').includes('半只剥了皮的野猪'));
+  state = follow(state, 'greet-night-kitchen', 'ask-night-meat', 'leave-night-kitchen', 'back-hallway', 'back-room', 'lie-down', 'sleep', 'go-reception', 'breakfast-offer', 'accept-breakfast', 'inspect-food', 'eat-breakfast');
+  assert.ok(getScene(state).paragraphs.join('').includes('鹿肉'));
+  assert.ok(knownClues(state).some(text => text.includes('野猪对不上')));
+  const dialogue = { ...state, scene: 'truthHub' };
+  assert.equal(getScene(dialogue).choices.some(choice => choice.id === 'ask-kitchen'), true);
+  assert.ok(getScene(choose(dialogue, 'ask-kitchen')).paragraphs.join('').includes('你昨夜真的来过'));
+});
+
+test('旧宴会厅位于厨房旁，夜间只能观察，白天可调查并提出矛盾', () => {
+  let state = route('approach', 'enter', 'start-check-in', 'finish-check-in', 'go-room', 'lie-down', 'investigate', 'follow-night-sound', 'banquet-door');
+  assert.equal(getScene(state).choices.some(choice => choice.id === 'enter-banquet'), false);
+  state = follow(state, 'back-night-kitchen', 'peek-banquet-door');
+  assert.equal(state.scene, 'banquetDoor');
+  state = follow(state, 'back-ground-hall', 'back-hallway', 'back-room', 'lie-down', 'sleep', 'go-reception', 'breakfast-offer', 'decline-breakfast', 'ground-hall', 'banquet-door', 'enter-banquet', 'inspect-banquet-table', 'back-banquet', 'listen-banquet');
+  assert.ok(getScene(state).paragraphs.join('').includes('先把门打开'));
+  assert.equal(state.flags.banquetTableSeen, true);
+  assert.equal(state.flags.banquetEchoHeard, true);
+  state = follow(state, 'back-banquet', 'through-kitchen-side', 'through-banquet-side', 'back-banquet-door', 'back-ground-hall');
+  assert.ok(getScene(state).paragraphs.join('').includes('厨房旁'));
+  const dialogue = { ...state, scene: 'truthHub' };
+  assert.equal(getScene(dialogue).choices.some(choice => choice.id === 'ask-banquet'), true);
+  assert.ok(getScene(choose(dialogue, 'ask-banquet')).paragraphs.join('').includes('先把门打开'));
+  const tableOnly = { ...dialogue, flags: { ...dialogue.flags, banquetEchoHeard: false } };
+  assert.equal(getScene(choose(tableOnly, 'ask-banquet')).paragraphs.join('').includes('先把门打开'), false);
+});
+
+test('地下室的残缺对话不直接揭示说话者身份', () => {
+  let state = follow(atBasementShore(false), 'wade', 'follow-wall', 'listen-wall');
+  assert.equal(state.flags.basementVoiceHeard, true);
+  assert.equal(getScene(state).paragraphs.join('').includes('爱德华'), false);
+  state = follow(state, 'answer-wall-voice');
+  assert.ok(getScene(state).paragraphs.join('').includes('后半句话被水声盖住'));
+  assert.equal(getScene(state).paragraphs.join('').includes('爱德华'), false);
+});

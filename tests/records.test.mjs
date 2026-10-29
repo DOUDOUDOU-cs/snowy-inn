@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { choose, getScene } from '../src/game/engine.ts';
 import { createGame } from '../src/game/state.ts';
-import { emptyRecords, startJourney, recordChoice, recordItemInspection, recordCordMove, parseRecords, openRecordStore, SAVE_KEY } from '../src/game/records.ts';
+import { emptyRecords, startJourney, recordChoice, recordItemInspection, recordCordMove, saveManualSlot, loadManualSlot, replayCheckpoint, parseRecords, openRecordStore, SAVE_KEY } from '../src/game/records.ts';
 import { ENDPOINT_COUNT, cordsUntangled, initialCordOrder } from '../src/game/cordPuzzle.ts';
 
 function travel(records, ...ids) {
@@ -69,6 +69,67 @@ test('重新开始保存旧旅程，通关与未完旅程都能留存且新局�
   assert.equal(records.archives.length, 2);
   assert.equal(records.archives[1].entries.at(-1).ending, '结局 · 一直向前');
   assert.deepEqual(parseRecords(JSON.stringify(records)), records);
+});
+
+test('三个手动存档位可在结局后读取，原旅程归档且存档保持原样', () => {
+  let records = travel(startJourney(emptyRecords()), 'approach', 'enter');
+  const savedState = structuredClone(records.current.state);
+  records = saveManualSlot(records, 1, '2026-09-30T01:00:00.000Z');
+  assert.equal(records.saves.length, 1);
+  assert.deepEqual(records.saves[0].snapshot.state, savedState);
+  records = travel(records, 'leave-inn', 'walk');
+  records = saveManualSlot(records, 2, '2026-09-30T02:00:00.000Z');
+  records = saveManualSlot(records, 3, '2026-09-30T03:00:00.000Z');
+  assert.deepEqual(records.saves.map(save => save.slot), [1, 2, 3]);
+  const beforeOverwrite = records.saves[0];
+  records = saveManualSlot(records, 4);
+  assert.equal(records.saves[0], beforeOverwrite);
+  records = saveManualSlot(records, 2, '2026-09-30T04:00:00.000Z');
+  assert.equal(records.saves.length, 3);
+  assert.equal(records.saves[1].savedAt, '2026-09-30T04:00:00.000Z');
+  records = travel(startJourney(records), ...Array(10).fill('walk'));
+  assert.equal(getScene(records.current.state).ending, '结局 · 一直向前');
+  const endingId = records.current.id;
+  records = loadManualSlot(records, 1);
+  assert.deepEqual(records.current.state, savedState);
+  assert.notEqual(records.current.id, endingId);
+  assert.equal(records.archives.at(-1).entries.at(-1).ending, '结局 · 一直向前');
+  assert.deepEqual(records.saves[0].snapshot.state, savedState);
+  assert.deepEqual(parseRecords(JSON.stringify(records)), records);
+});
+
+test('关键节点保存选择前状态，结局后回溯并重新作出选择', () => {
+  let records = travel(startJourney(emptyRecords()), 'approach', 'enter');
+  const point = records.current.checkpoints[0];
+  assert.equal(point.key, 'before-enter');
+  assert.equal(point.state.scene, 'entrance');
+  assert.equal(point.state.flags.enteredInn, false);
+  records = travel(records, 'leave-inn', ...Array(10).fill('walk'));
+  const finished = structuredClone(records.current);
+  records = replayCheckpoint(records, 'before-enter');
+  assert.deepEqual(records.current.state, point.state);
+  assert.deepEqual(records.current.entries, point.entries);
+  assert.equal(records.current.checkpoints.length, 0);
+  assert.equal(records.archives.at(-1).entries.at(-1).ending, finished.entries.at(-1).ending);
+  records = travel(records, 'walk');
+  assert.equal(records.current.state.flags.enteredInn, false);
+  assert.equal(records.current.state.forestSteps, 1);
+  assert.equal(replayCheckpoint(records, 'missing'), records);
+  assert.deepEqual(parseRecords(JSON.stringify(records)), records);
+});
+
+test('损坏的手动存档和关键节点被拒绝，旧 1.0 记录仍能读取', () => {
+  const old = startJourney(emptyRecords());
+  delete old.saves;
+  delete old.current.checkpoints;
+  assert.deepEqual(parseRecords(JSON.stringify(old)), old);
+  const withSave = saveManualSlot(old, 1);
+  const broken = structuredClone(withSave);
+  broken.saves[0].snapshot.state.scene = 'missing';
+  assert.equal(parseRecords(JSON.stringify(broken)), null);
+  const withPoint = travel(startJourney(emptyRecords()), 'approach', 'enter');
+  withPoint.current.checkpoints[0].entries = [];
+  assert.equal(parseRecords(JSON.stringify(withPoint)), null);
 });
 
 test('旧版逐节点存档读取后凝练为日记，游戏状态和原有文件都保留', () => {
@@ -151,6 +212,19 @@ test('旧版存档缺少绳阵顺序时仍可读取', () => {
   const previousPuzzle = startJourney(emptyRecords());
   previousPuzzle.current.state.cordOrder = [9, 16, 3, 14, 1, 18, 7, 12, 0, 15, 5, 19, 10, 2, 17, 6, 13, 4, 11, 8];
   assert.deepEqual(parseRecords(JSON.stringify(previousPuzzle)), previousPuzzle);
+});
+
+test('1.0 存档缺少新增场景标记时仍可读取并继续调查', () => {
+  const saved = startJourney(emptyRecords());
+  for (const key of ['neighborWaterSeen', 'neighborWaterDrank', 'nightKitchenSeen', 'nightKitchenSpoken', 'banquetTableSeen', 'banquetEchoHeard', 'basementVoiceHeard']) {
+    delete saved.current.state.flags[key];
+  }
+  const reopened = parseRecords(JSON.stringify(saved));
+  assert.ok(reopened);
+  reopened.current.state.scene = 'neighborRoom';
+  const next = recordChoice(reopened, 'inspect-neighbor-water');
+  assert.equal(next.current.state.flags.neighborWaterSeen, true);
+  assert.ok(parseRecords(JSON.stringify(next)));
 });
 
 test('坏档、未知版本和不完整状态不崩溃，也不被新旅程覆盖', () => {

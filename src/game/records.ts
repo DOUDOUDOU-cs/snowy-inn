@@ -23,29 +23,49 @@ export interface JourneyRecord {
   startedAt: string;
   updatedAt: string;
   entries: DiaryEntry[];
+  checkpoints?: JourneyCheckpoint[];
 }
 
 export interface CurrentJourney extends JourneyRecord { state: GameState }
+export interface JourneyCheckpoint { key: string; title: string; state: GameState; entries: DiaryEntry[] }
+export interface ManualSave {
+  slot: number;
+  savedAt: string;
+  title: string;
+  snapshot: { state: GameState; entries: DiaryEntry[]; checkpoints: JourneyCheckpoint[] };
+}
 export interface GameRecords {
   version: 2;
   current: CurrentJourney | null;
   archives: JourneyRecord[];
+  saves?: ManualSave[];
 }
 
-export const emptyRecords = (): GameRecords => ({ version: 2, current: null, archives: [] });
+export const emptyRecords = (): GameRecords => ({ version: 2, current: null, archives: [], saves: [] });
+
+const checkpointTitles: Record<string, { key: string; title: string }> = {
+  enter: { key: "before-enter", title: "推开旅馆大门之前" },
+  "breakfast-offer": { key: "before-breakfast", title: "回应早餐邀请之前" },
+  jump: { key: "before-jump", title: "跳入地下水洞之前" },
+  "stay-one-more-night": { key: "before-stay", title: "决定再住一晚之前" },
+  "write-checkout": { key: "before-checkout", title: "填写退房日期之前" },
+  "sit-behind-desk": { key: "before-desk", title: "坐到前台之前" },
+};
+
+function archiveCurrent(records: GameRecords): JourneyRecord[] {
+  if (!records.current) return [...records.archives];
+  const { state: _state, ...archive } = records.current;
+  return [...records.archives, archive];
+}
 
 export function startJourney(records: GameRecords, now = new Date().toISOString()): GameRecords {
   const state = createGame();
-  const archives = [...records.archives];
-  if (records.current) {
-    const { state: _state, ...archive } = records.current;
-    archives.push(archive);
-  }
+  const archives = archiveCurrent(records);
   return {
-    version: 2, archives,
+    version: 2, archives, saves: records.saves ?? [],
     current: {
       id: `${now}-${Math.random().toString(36).slice(2, 10)}`,
-      startedAt: now, updatedAt: now, state, entries: [openingDiary(state)],
+      startedAt: now, updatedAt: now, state, entries: [openingDiary(state)], checkpoints: [],
     },
   };
 }
@@ -56,10 +76,48 @@ export function recordChoice(records: GameRecords, choiceId: string, now = new D
   const choice = getScene(current.state).choices.find(candidate => candidate.id === choiceId);
   if (!choice) return records;
   const state = choose(current.state, choiceId);
+  const checkpoint = checkpointTitles[choice.id];
+  const checkpoints = checkpoint && !(current.checkpoints ?? []).some(saved => saved.key === checkpoint.key)
+    ? [...(current.checkpoints ?? []), { ...checkpoint, state: structuredClone(current.state), entries: structuredClone(current.entries) }]
+    : current.checkpoints ?? [];
   const diary = diaryForChoice(current.state, choice.id, state);
   const entries = diary && !current.entries.some(entry => entry.key === diary.key)
     ? [...current.entries, diary] : current.entries;
-  return { ...records, current: { ...current, state, entries, updatedAt: now } };
+  return { ...records, current: { ...current, state, entries, checkpoints, updatedAt: now } };
+}
+
+export function saveManualSlot(records: GameRecords, slot: number, now = new Date().toISOString()): GameRecords {
+  if (!records.current || !Number.isInteger(slot) || slot < 1 || slot > 3) return records;
+  const save: ManualSave = {
+    slot, savedAt: now, title: getScene(records.current.state).title,
+    snapshot: structuredClone({ state: records.current.state, entries: records.current.entries, checkpoints: records.current.checkpoints ?? [] }),
+  };
+  return { ...records, saves: [...(records.saves ?? []).filter(item => item.slot !== slot), save].sort((a, b) => a.slot - b.slot) };
+}
+
+export function loadManualSlot(records: GameRecords, slot: number, now = new Date().toISOString()): GameRecords {
+  const saved = records.saves?.find(item => item.slot === slot);
+  if (!saved) return records;
+  const snapshot = structuredClone(saved.snapshot);
+  return {
+    ...records, archives: archiveCurrent(records),
+    current: { id: `${now}-${Math.random().toString(36).slice(2, 10)}`, startedAt: now, updatedAt: now, ...snapshot },
+  };
+}
+
+export function replayCheckpoint(records: GameRecords, key: string, now = new Date().toISOString()): GameRecords {
+  const checkpoints = records.current?.checkpoints ?? [];
+  const index = checkpoints.findIndex(item => item.key === key);
+  if (index < 0) return records;
+  const point = checkpoints[index]!;
+  return {
+    ...records, archives: archiveCurrent(records),
+    current: {
+      id: `${now}-${Math.random().toString(36).slice(2, 10)}`, startedAt: now, updatedAt: now,
+      state: structuredClone(point.state), entries: structuredClone(point.entries),
+      checkpoints: structuredClone(checkpoints.slice(0, index)),
+    },
+  };
 }
 
 export function recordItemInspection(records: GameRecords, item: ItemId): GameRecords {
@@ -95,7 +153,9 @@ function isState(value: unknown): value is GameState {
   if (value.ringDroppedOnDay !== null && (!isDay(value.ringDroppedOnDay) || value.ringDroppedOnDay > value.day)) return false;
   if (!["unresolved", "eaten", "pretended", "declined"].includes(value.breakfast as string)) return false;
   const flags = value.flags;
-  return isObject(flags) && Object.keys(createGame().flags).every(key => typeof flags[key] === "boolean");
+  const addedFlags = new Set(["neighborWaterSeen", "neighborWaterDrank", "nightKitchenSeen", "nightKitchenSpoken", "banquetTableSeen", "banquetEchoHeard", "basementVoiceHeard"]);
+  return isObject(flags) && Object.keys(createGame().flags).every(key =>
+    typeof flags[key] === "boolean" || (addedFlags.has(key) && flags[key] === undefined));
 }
 
 function isLegacyEntry(value: unknown): value is LegacyHistoryEntry {
@@ -111,11 +171,34 @@ function isDiaryEntry(value: unknown): value is DiaryEntry {
     && (value.ending === undefined || typeof value.ending === "string");
 }
 
+function isDiaryEntries(value: unknown): value is DiaryEntry[] {
+  return Array.isArray(value) && value.length > 0 && value.every(isDiaryEntry)
+    && new Set(value.map(entry => entry.key)).size === value.length;
+}
+
+function isCheckpoint(value: unknown): value is JourneyCheckpoint {
+  return isObject(value) && typeof value.key === "string" && value.key.length > 0
+    && typeof value.title === "string" && isState(value.state) && isDiaryEntries(value.entries);
+}
+
+function isCheckpoints(value: unknown): value is JourneyCheckpoint[] {
+  return Array.isArray(value) && value.every(isCheckpoint)
+    && new Set(value.map(item => item.key)).size === value.length;
+}
+
+function isManualSave(value: unknown): value is ManualSave {
+  if (!isObject(value) || !Number.isInteger(value.slot) || (value.slot as number) < 1 || (value.slot as number) > 3
+    || !isDate(value.savedAt) || typeof value.title !== "string" || !isObject(value.snapshot)) return false;
+  return isState(value.snapshot.state) && isDiaryEntries(value.snapshot.entries)
+    && isCheckpoints(value.snapshot.checkpoints);
+}
+
 function isJourney(value: unknown, legacy: boolean): value is JourneyRecord {
   return isObject(value) && typeof value.id === "string" && isDate(value.startedAt) && isDate(value.updatedAt)
     && Array.isArray(value.entries) && value.entries.length > 0
     && value.entries.every(legacy ? isLegacyEntry : isDiaryEntry)
-    && (legacy || new Set(value.entries.map(entry => entry.key)).size === value.entries.length);
+    && (legacy || new Set(value.entries.map(entry => entry.key)).size === value.entries.length)
+    && (value.checkpoints === undefined || isCheckpoints(value.checkpoints));
 }
 
 export function parseRecords(raw: string): GameRecords | null {
@@ -123,6 +206,8 @@ export function parseRecords(raw: string): GameRecords | null {
     const data: unknown = JSON.parse(raw);
     if (!isObject(data) || (data.version !== 1 && data.version !== 2) || !Array.isArray(data.archives)) return null;
     const legacy = data.version === 1;
+    if (!legacy && data.saves !== undefined && (!Array.isArray(data.saves) || data.saves.length > 3
+      || !data.saves.every(isManualSave) || new Set(data.saves.map(save => save.slot)).size !== data.saves.length)) return null;
     if (!data.archives.every(archive => isJourney(archive, legacy))) return null;
     if (data.current !== null) {
       const current = data.current;
