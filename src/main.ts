@@ -9,11 +9,11 @@ import { openDebrisPuzzle } from "./ui/debrisPuzzle";
 import { openCordPuzzle } from "./ui/cordPuzzle";
 import { artForScene } from "./ui/sceneArt";
 import { presentationForScene } from "./ui/scenePresentation";
-import { createSceneStage } from "./ui/sceneStage";
-import { narrationPages, createNarrationBookmark } from "./ui/sceneNarration";
+import { createSceneView, type SceneTransition } from "./ui/sceneView";
 import { wellPuzzleAction, wellPuzzleView } from "./game/wellPuzzle";
 import { openWellPuzzle } from "./ui/wellPuzzle";
 import "./ui/wellPuzzle.css";
+import "./ui/sceneView.css";
 
 const root = document.querySelector<HTMLElement>("#app");
 if (!root) throw new Error("找不到游戏显示区域 #app。");
@@ -22,67 +22,34 @@ const recordStore = openRecordStore(() => window.localStorage);
 let records = recordStore.data;
 let game: GameState | null = records.current?.state ?? null;
 let feedback = "";
+const shellElement = document.querySelector<HTMLElement>(".game-shell");
 const scenery = document.querySelector<HTMLElement>(".scenery");
-const shell = document.querySelector<HTMLElement>(".game-shell");
-const sceneImage = scenery?.querySelector<HTMLImageElement>(".scene-art-image");
-const sceneryCaption = scenery?.querySelector<HTMLElement>(".scene-caption-text");
-const sceneViewButton = scenery?.querySelector<HTMLButtonElement>(".scene-view-button");
-const targets = scenery?.querySelector<HTMLElement>(".scene-targets");
-if (!shell || !scenery || !sceneImage || !targets) throw new Error("找不到场景舞台。");
-const stage = createSceneStage({ shell, scenery, image: sceneImage, targets });
+const frame = scenery?.querySelector<HTMLElement>(".scene-frame");
+const sceneImage = frame?.querySelector<HTMLImageElement>(".scene-art-image");
+const backdrop = scenery?.querySelector<HTMLImageElement>(".scene-backdrop");
+if (!shellElement || !scenery || !frame || !sceneImage || !backdrop) throw new Error("找不到场景舞台。");
+const shell: HTMLElement = shellElement;
+const stage = createSceneView({ shell, frame, image: sceneImage, backdrop });
 let viewEpoch = 0;
 let lastPresentation: { space: string; mode: string; scene: GameState["scene"] } | null = null;
-let pendingFocus: string | null = null;
-let narrationController: AbortController | undefined;
-const narrationBookmark = createNarrationBookmark();
+// In-memory only: returning from the inventory resumes the same page of the same text.
+let readingMark: { key: string; page: number } | undefined;
 
 function beginView(view: "story" | "system" | "title"): number {
-  narrationController?.abort();
-  narrationController = undefined;
   stage.cancel();
   viewEpoch += 1;
-  shell!.dataset.view = view;
-  document.querySelectorAll<HTMLDialogElement>(".scene-dialog, .narration-dialog, .well-dialog").forEach(dialog => { dialog.close(); dialog.remove(); });
+  shell.dataset.view = view;
+  document.querySelectorAll<HTMLDialogElement>(".well-dialog").forEach(dialog => { dialog.close(); dialog.remove(); });
   return viewEpoch;
 }
 
-function updateScenery(state: GameState | null): boolean {
-  if (!scenery || !sceneImage) return false;
+function updateScenery(state: GameState | null): void {
   const art = artForScene(state);
-  const age = state?.scene === "escape" ? "gone" : String(art.age);
-  const changed = sceneImage.getAttribute("src") !== art.src || scenery.dataset.age !== age;
-  // 剧情图由舞台准备完毕后切换；系统/标题画面不推进剧情。
-  if (shell?.dataset.view !== "story") {
-    if (sceneImage.getAttribute("src") !== art.src) sceneImage.src = art.src;
-    sceneImage.hidden = false;
-    sceneImage.alt = art.alt;
-    if (sceneViewButton) sceneViewButton.disabled = false;
-  }
-  scenery.dataset.age = age;
-  if (shell) shell.dataset.tone = art.tone;
-  if (sceneryCaption) sceneryCaption.textContent = state?.scene === "escape" ? "林路 · 灯光终于留在身后" : art.caption;
-  return changed;
+  scenery!.dataset.age = state?.scene === "escape" ? "gone" : String(art.age);
+  shell.dataset.tone = art.tone;
+  // Story views swap the picture themselves once it has loaded.
+  if (shell.dataset.view !== "story") stage.setStill(art);
 }
-
-function showSceneArt(): void {
-  if (!sceneImage || !sceneryCaption || !sceneViewButton) return;
-  if (shell?.dataset.view === "story" && shell.dataset.phase !== "ready") return;
-  stage.closeActions(false);
-  const epoch = viewEpoch;
-  const dialog = document.createElement("dialog");
-  dialog.className = "scene-dialog";
-  dialog.innerHTML = '<div class="scene-dialog-heading"><p></p><button type="button" aria-label="关闭场景图">×</button></div><img /><p class="scene-dialog-hint">这里可完整观察画面。关闭后，点击场景中的行动标记继续探索。</p>';
-  dialog.querySelector<HTMLElement>(".scene-dialog-heading p")!.textContent = sceneryCaption.textContent;
-  const image = dialog.querySelector<HTMLImageElement>("img")!;
-  image.src = sceneImage.src;
-  image.alt = sceneImage.alt;
-  dialog.querySelector<HTMLButtonElement>("button")!.addEventListener("click", () => dialog.close());
-  dialog.addEventListener("close", () => { dialog.remove(); if (epoch === viewEpoch) sceneViewButton.focus(); }, { once: true });
-  document.body.append(dialog);
-  dialog.showModal();
-  dialog.querySelector<HTMLButtonElement>("button")!.focus();
-}
-sceneViewButton?.addEventListener("click", showSceneArt);
 
 function commitRecords(next: GameRecords): void {
   if (next === records) return;
@@ -91,7 +58,7 @@ function commitRecords(next: GameRecords): void {
   recordStore.save(records);
 }
 // 记录只随实际选择写入；标题、回看和物品页重绘不会增加剧情条目。
-function startGame(): void { commitRecords(startJourney(records)); feedback = ""; lastPresentation = null; pendingFocus = null; renderStory(); }
+function startGame(): void { commitRecords(startJourney(records)); feedback = ""; lastPresentation = null; renderStory(); }
 function focusHeading(): void {
   if (recordStore.message) {
     const warning = document.createElement("p");
@@ -161,52 +128,55 @@ function renderStory(): void {
   const snapshot = game;
   updateScenery(snapshot);
   const scene = getScene(snapshot);
-  const presentation = presentationForScene(snapshot, scene, artForScene(snapshot));
+  const art = artForScene(snapshot);
+  const presentation = presentationForScene(snapshot, scene, art);
   const previous = lastPresentation;
-  const transition = scene.ending ? "ending" : previous?.space !== presentation.space ? "move"
+  const transition: SceneTransition = scene.ending ? "ending" : previous?.space !== presentation.space ? "move"
     : presentation.mode === "detail" && previous?.scene !== snapshot.scene ? "inspect"
     : previous?.mode === "detail" && presentation.mode !== "detail" ? "return" : "dialogue";
   lastPresentation = { space: presentation.space, mode: presentation.mode, scene: snapshot.scene };
   app.innerHTML = `
-    <section class="story-screen screen scene-overlay" aria-labelledby="scene-title">
-      <nav class="story-nav" aria-label="游戏导航">
-        <button class="text-button" id="back-title" type="button">← 返回标题</button>
-        <span class="story-time"></span>
-        <button class="text-button" id="inventory" type="button"></button>
-        <button class="text-button" id="save-slots" type="button">存档／回溯</button>
-        <button class="text-button" id="history" type="button">旅程记录</button>
-        <button class="text-button scene-reading-fallback" id="read-narration" type="button">阅读旁白</button>
-      </nav>
-      <div class="scene-reading">
-        <div class="scene-reading-heading"><p class="eyebrow scene-location"></p><button class="text-button" id="toggle-narrative" type="button" aria-expanded="true" aria-controls="scene-narrative">收起旁白</button></div>
-        <h1 id="scene-title" tabindex="-1"></h1>
-        <div class="narrative" id="scene-narrative"></div>
-        <nav class="narration-controls" aria-label="旁白阅读"></nav>
-        <div class="ending-actions"></div>
-      </div>
-      <button class="scene-reveal-button" id="reveal-scene" type="button">立即显示</button>
+    <section class="story-screen scene-overlay" aria-labelledby="scene-title">
+      <header class="scene-hud">
+        <p class="scene-hud-place"><span class="scene-hud-time"></span><span class="scene-hud-location"></span></p>
+        <h1 id="scene-title" class="visually-hidden" tabindex="-1"></h1>
+        <nav class="scene-hud-actions" aria-label="游戏菜单">
+          <button type="button" id="inventory"></button>
+          <button type="button" id="history">日记</button>
+          <button type="button" id="save-slots">存档</button>
+          <button type="button" id="hide-text" title="隐藏文字，单独看画面（H）">隐藏文字</button>
+          <button type="button" id="back-title">标题</button>
+        </nav>
+      </header>
     </section>`;
-  const reading = app.querySelector<HTMLElement>(".scene-reading")!;
-  const toggle = app.querySelector<HTMLButtonElement>("#toggle-narrative")!;
-  toggle.addEventListener("click", () => {
-    const collapsed = reading.classList.toggle("is-collapsed");
-    toggle.setAttribute("aria-expanded", String(!collapsed));
-    toggle.textContent = collapsed ? "展开旁白" : "收起旁白";
-    rememberReading("layout");
-  });
-  app.querySelector<HTMLButtonElement>("#reveal-scene")!.addEventListener("click", () => stage.revealNow());
-  app.querySelector<HTMLElement>(".story-time")!.textContent = snapshot.day === 1 && snapshot.time === "night"
-    ? "雪夜"
-    : `第 ${snapshot.day} 天 · ${snapshot.time === "night" ? "夜晚" : "清晨"}`;
-  app.querySelector<HTMLElement>(".scene-location")!.textContent = scene.location;
+  app.querySelector<HTMLElement>(".scene-hud-time")!.textContent = snapshot.day === 1 && snapshot.time === "night"
+    ? "雪夜" : `第 ${snapshot.day} 天 · ${snapshot.time === "night" ? "夜" : "晨"}`;
+  app.querySelector<HTMLElement>(".scene-hud-location")!.textContent = scene.location;
   app.querySelector<HTMLElement>("h1")!.textContent = scene.title;
   const inventoryButton = app.querySelector<HTMLButtonElement>("#inventory")!;
-  inventoryButton.textContent = "随身物品（" + snapshot.inventory.length + "）";
+  inventoryButton.textContent = snapshot.inventory.length ? `物品 ${snapshot.inventory.length}` : "物品";
   inventoryButton.addEventListener("click", renderInventory);
-  app.querySelector<HTMLButtonElement>("#back-title")!.addEventListener("click", renderTitle);
   app.querySelector<HTMLButtonElement>("#history")!.addEventListener("click", () => renderJourneyHistory(records.current!.id, undefined, renderStory));
   app.querySelector<HTMLButtonElement>("#save-slots")!.addEventListener("click", () => renderSaveShelf(renderStory));
-  const spoken = [...scene.paragraphs];
+  app.querySelector<HTMLButtonElement>("#hide-text")!.addEventListener("click", () => stage.toggleText());
+  app.querySelector<HTMLButtonElement>("#back-title")!.addEventListener("click", renderTitle);
+  if (recordStore.message) {
+    const warning = document.createElement("p");
+    warning.className = "save-warning";
+    warning.setAttribute("role", "status");
+    warning.textContent = recordStore.message;
+    app.querySelector(".scene-hud")!.after(warning);
+  }
+
+  const lead: HTMLElement[] = [];
+  if (feedback) {
+    const message = document.createElement("p");
+    message.className = "item-feedback";
+    message.setAttribute("role", "status");
+    message.textContent = feedback;
+    lead.push(message);
+    feedback = "";
+  }
   const ropeStages: Partial<Record<GameState["scene"], number>> = {
     ropeSlips: 0, ropeOnWindlass: 1, ropeWrapped: 2, ropeWoundOnce: 3, ropeWoundTwice: 4,
   };
@@ -217,132 +187,26 @@ function renderStory(): void {
     panel.setAttribute("role", "img");
     panel.setAttribute("aria-label", ["井绳湿滑，木桶还在井底", "井绳已经搭在轱辘上", "绳头已缠在手上", "轱辘开始卷起井绳", "木桶已升到井沿下"][ropeStage]!);
     panel.innerHTML = '<div class="rope-wheel" aria-hidden="true"></div><div class="rope-line" aria-hidden="true"></div><div class="rope-bucket" aria-hidden="true"></div>';
-    app.querySelector<HTMLElement>(".narrative")!.after(panel);
+    lead.push(panel);
   }
-  const transientFeedback = feedback;
-  if (feedback) {
-    const message = document.createElement("p");
-    message.className = "item-feedback";
-    message.setAttribute("role", "status");
-    message.textContent = feedback;
-    app.querySelector<HTMLElement>(".narration-controls")!.after(message);
-    feedback = "";
-  }
-  const narrowReading = window.matchMedia("(max-width: 700px)");
-  let pages = narrationPages(spoken, narrowReading.matches ? 60 : 90);
-  const readingSource = { journeyId: records.current!.id, scene: snapshot.scene, paragraphs: spoken };
-  const restoredReading = narrationBookmark.restore(readingSource, pages);
-  narrationController = new AbortController();
-  const narrative = app.querySelector<HTMLElement>(".narrative")!;
-  const line = document.createElement("p");
-  line.className = "narrative-line";
-  line.setAttribute("aria-live", "polite");
-  line.setAttribute("aria-atomic", "true");
-  narrative.append(line);
-  const controls = app.querySelector<HTMLElement>(".narration-controls")!;
-  let page = restoredReading.page;
-  if (restoredReading.collapsed) {
-    reading.classList.add("is-collapsed");
-    toggle.setAttribute("aria-expanded", "false");
-    toggle.textContent = "展开旁白";
-  }
-  function rememberReading(intent: "page" | "layout"): void {
-    narrationBookmark.remember(readingSource, pages, page, reading.classList.contains("is-collapsed"), intent);
-  }
-  const previousLine = textButton("‹ 上一段", () => { page--; displayLine(); }, "narration-step");
-  const nextLine = textButton("下一段 ›", () => { page++; displayLine(); }, "narration-step");
-  const position = document.createElement("span");
-  position.className = "narration-position";
-  controls.append(previousLine, position, nextLine);
-  let syncReader: (() => void) | undefined;
-  function displayLine(intent: "page" | "layout" = "page"): void {
-    if (epoch !== viewEpoch) return;
-    page = Math.max(0, Math.min(Math.max(0, pages.length - 1), page));
-    line.textContent = pages[page] ?? "";
-    line.classList.remove("is-revealing");
-    void line.offsetWidth;
-    line.classList.add("is-revealing");
-    previousLine.disabled = page === 0;
-    nextLine.disabled = page >= pages.length - 1;
-    position.textContent = `${page + 1} / ${Math.max(1, pages.length)}`;
-    controls.hidden = pages.length <= 1;
-    rememberReading(intent);
-    syncReader?.();
-  }
-  displayLine("layout");
-  const readerButton = app.querySelector<HTMLButtonElement>("#read-narration")!;
-  if (transientFeedback) readerButton.textContent = `阅读旁白 · ${transientFeedback}`;
-  readerButton.addEventListener("click", () => {
-    if (epoch !== viewEpoch) return;
-    if (shell!.querySelector(".narration-dialog")) return;
-    stage.closeActions(false);
-    const dialog = document.createElement("dialog");
-    dialog.className = "narration-dialog";
-    dialog.setAttribute("aria-label", "阅读当前旁白");
-    const heading = document.createElement("div");
-    heading.className = "narration-reader-heading";
-    const title = document.createElement("h2");
-    title.textContent = scene.title;
-    const close = textButton("×", () => dialog.close());
-    close.setAttribute("aria-label", "关闭阅读");
-    heading.append(title, close);
-    const text = document.createElement("p");
-    text.className = "narration-reader-line";
-    text.setAttribute("aria-live", "polite");
-    const readerControls = document.createElement("nav");
-    readerControls.className = "narration-reader-controls";
-    readerControls.setAttribute("aria-label", "旁白阅读");
-    const previousPage = textButton("上一段", () => { page--; displayLine(); });
-    const nextPage = textButton("下一段", () => { page++; displayLine(); });
-    const readerPosition = document.createElement("span");
-    readerControls.append(previousPage, readerPosition, nextPage);
-    function updateReader(): void {
-      text.textContent = pages[page] ?? "";
-      previousPage.disabled = page === 0;
-      nextPage.disabled = page >= pages.length - 1;
-      readerPosition.textContent = `${page + 1} / ${Math.max(1, pages.length)}`;
-      readerControls.hidden = pages.length <= 1;
+  const tail: HTMLElement[] = [];
+  if (scene.previewEnd || scene.ending) {
+    const note = document.createElement("aside");
+    note.className = "preview-end";
+    addParagraphs(note, [scene.previewEnd ?? scene.ending!]);
+    if (scene.ending) {
+      if (records.current?.checkpoints?.length) note.append(textButton("从关键节点重玩 →", () => renderCheckpointShelf(renderStory)));
+      note.append(textButton("重新踏上旅程 →", startGame));
     }
-    syncReader = updateReader;
-    updateReader();
-    // Move auxiliary content so existing ending/replay handlers remain intact.
-    // It returns to the floating narration when this same view closes the reader.
-    const auxiliary = [...reading.children].filter((child): child is HTMLElement => child instanceof HTMLElement
-      && child.matches(".item-feedback, .rope-panel, .ending-actions"))
-      .map(node => ({ node, next: node.nextSibling }));
-    dialog.append(heading, text);
-    for (const { node } of auxiliary) dialog.append(node);
-    dialog.append(readerControls);
-    dialog.addEventListener("close", () => {
-      if (epoch === viewEpoch && reading.isConnected) {
-        for (const { node, next } of [...auxiliary].reverse()) reading.insertBefore(node, next?.parentNode === reading ? next : null);
-      }
-      dialog.remove();
-      if (syncReader === updateReader) syncReader = undefined;
-      // Restoring content triggers the stage observer. Focus only after that
-      // layout pass, so a newly hidden reading block cannot retain focus.
-      queueMicrotask(() => {
-        if (epoch !== viewEpoch || !reading.isConnected) return;
-        if (shell!.dataset.narrationObstructed === "true") readerButton.focus({ preventScroll: true });
-        else toggle.focus({ preventScroll: true });
-      });
-    }, { once: true });
-    shell!.append(dialog);
-    dialog.showModal();
-    close.focus();
-  });
-  narrowReading.addEventListener("change", () => {
-    if (epoch !== viewEpoch) return;
-    pages = narrationPages(spoken, narrowReading.matches ? 60 : 90);
-    page = narrationBookmark.restore(readingSource, pages).page;
-    displayLine("layout");
-  }, { signal: narrationController.signal });
+    tail.push(note);
+  }
+
   let acted = false;
   let puzzleOpen = false;
   const onChoose = (choiceId: string, button: HTMLButtonElement): void => {
       const choice = scene.choices.find(candidate => candidate.id === choiceId);
       // 校验视图和当前规则产物；视觉回调永不补写选择。
-      if (!choice || acted || puzzleOpen || epoch !== viewEpoch || game !== snapshot || shell!.dataset.phase !== "ready") return;
+      if (!choice || acted || puzzleOpen || epoch !== viewEpoch || game !== snapshot) return;
       const currentWell = wellPuzzleView(snapshot);
       const resumesWell = currentWell && currentWell.stage !== 5
         && ["set-windlass", "wrap-rope", "turn-windlass", "lift-bucket"].includes(choice.id);
@@ -406,42 +270,21 @@ function renderStory(): void {
       }
       acted = true;
       button.disabled = true;
-      if (presentation.mode !== "detail" && scene.choices.some(candidate => candidate.id === choice.id)) {
-        pendingFocus = presentation.groups.find(group => group.choices.some(candidate => candidate.id === choice.id))?.id ?? null;
-      }
       commitRecords(recordChoice(records, choice.id));
       const added = game!.inventory.filter(item => !snapshot.inventory.includes(item));
       feedback = added.length ? "已收好：" + added.map(item => items[item].name).join("、")
         : hasLostRing(snapshot, game!) ? "戒指已留在井里。" : "";
       renderStory();
   };
-  if (scene.previewEnd || scene.ending) {
-    const note = document.createElement("aside");
-    note.className = "preview-end";
-    addParagraphs(note, [scene.previewEnd ?? scene.ending!]);
-    if (scene.ending) {
-      if (records.current?.checkpoints?.length) note.append(textButton("从关键节点重玩 →", () => renderCheckpointShelf(renderStory)));
-      note.append(textButton("重新踏上旅程 →", startGame));
-    }
-    app.querySelector<HTMLElement>(".ending-actions")!.append(note);
-  }
-  // 持久化警告立即可见；旁白/行动就绪后才转移焦点。
-  if (recordStore.message) {
-    const warning = document.createElement("p");
-    warning.className = "save-warning";
-    warning.setAttribute("role", "status");
-    warning.textContent = recordStore.message;
-    app.querySelector(".story-nav")!.after(warning);
-  }
-  void stage.present({ art: artForScene(snapshot), groups: presentation.groups, transition, onChoose, onReady: () => {
-    if (epoch !== viewEpoch) return;
-    if (transition === "return" && pendingFocus) {
-      const button = [...targets!.querySelectorAll<HTMLButtonElement>("[data-group]")].find(candidate => candidate.dataset.group === pendingFocus);
-      if (button) { button.focus({ preventScroll: true }); pendingFocus = null; return; }
-    }
-    if (shell!.dataset.narrationObstructed === "true") readerButton.focus({ preventScroll: true });
-    else app.querySelector<HTMLElement>("h1")?.focus({ preventScroll: true });
-  } });
+
+  const readingKey = JSON.stringify([records.current?.id, snapshot.scene, scene.paragraphs]);
+  void stage.present({
+    art, mode: presentation.mode, groups: presentation.groups, transition,
+    title: scene.title, paragraphs: scene.paragraphs, lead, tail, onChoose,
+    initialPage: readingMark?.key === readingKey ? readingMark.page : 0,
+    onPageChange: page => { readingMark = { key: readingKey, page }; },
+    onReady: () => {},
+  });
 }
 
 function renderInventory(): void {

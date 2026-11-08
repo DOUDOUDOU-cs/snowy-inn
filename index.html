@@ -12,9 +12,10 @@
   <body>
     <div class="game-shell" data-view="title" data-phase="ready">
       <figure class="scenery" data-age="0">
-        <img class="scene-art-image" src="/scenes/forest-inn.webp" alt="覆雪的云杉林中，一条小路通向亮着灯的石木旅馆。" decoding="async" />
-        <div class="scene-targets" aria-label="场景中的行动" hidden inert></div>
-        <figcaption class="scene-caption"><span class="scene-caption-text">云杉林 · 通往旅馆的小路</span><button class="scene-view-button" type="button" aria-label="放大当前场景图">查看完整场景</button></figcaption>
+        <img class="scene-backdrop" src="/scenes/forest-inn.webp" alt="" aria-hidden="true" />
+        <div class="scene-frame">
+          <img class="scene-art-image" src="/scenes/forest-inn.webp" alt="覆雪的云杉林中，一条小路通向亮着灯的石木旅馆。" decoding="async" />
+        </div>
       </figure>
       <main id="app"></main>
     </div>

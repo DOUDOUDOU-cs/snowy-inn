@@ -56,8 +56,9 @@ test('所有节点在多种规则状态下可用选择恰好分组一次，且�
 
 test('真实门前到大厅调查及返回同属大厅空间，办理与画像入口对准不同对象', () => {
   const entrance = follow(createGame(), 'approach');
-  assert.deepEqual(actionGroup(entrance, 'enter').anchor, { x: 45, y: 56 });
-  assert.equal(actionGroup(entrance, 'well').anchor, undefined);
+  assert.deepEqual(actionGroup(entrance, 'enter').anchor, { x: 47, y: 51 });
+  // 门前近景里水井就画在右侧，直接点它。
+  assert.deepEqual(actionGroup(entrance, 'well').anchor, { x: 93, y: 55 });
   const reception = follow(entrance, 'enter');
   assert.equal(actionGroup(reception, 'start-check-in').kind, 'person');
   assert.equal(actionGroup(reception, 'look-hall-portrait').id, 'hall-portrait');
@@ -95,7 +96,7 @@ test('共享choice id按节点表达返回语义，特写动作不误称空间�
   const base = createGame();
   assert.equal(actionGroup({ ...base, scene: 'registry' }, 'start-check-in').kind, 'object');
   assert.equal(actionGroup({ ...base, scene: 'reception' }, 'start-check-in').kind, 'person');
-  assert.equal(actionGroup({ ...base, scene: 'guestRoom' }, 'back-reception').id, 'downstairs');
+  assert.equal(actionGroup({ ...base, scene: 'guestRoom' }, 'back-reception').id, 'room-door');
   assert.equal(actionGroup({ ...base, scene: 'hallPortrait' }, 'back-reception').id, 'reception-return');
   assert.equal(present({ ...base, scene: 'neighborWater' }).mode, 'detail');
   assert.equal(present({ ...base, scene: 'wallVoice' }).mode, 'dialogue');
@@ -122,9 +123,12 @@ test('绳阵解开前后与旧状态缺省字段不漏行动，也不提前显�
 test('图像变体中门前锚点跟随远近景，空柜台不放人物热点', () => {
   const base = createGame();
   const morning = { ...base, scene: 'entrance', time: 'morning' };
-  assert.deepEqual(actionGroup(morning, 'enter').anchor, { x: 66, y: 55 });
+  assert.deepEqual(actionGroup(morning, 'enter').anchor, { x: 62, y: 46 });
+  // 远景里看不见水井：改为画面右侧的出口，而不是落在空地上的热区。
+  assert.equal(actionGroup(morning, 'well').anchor, undefined);
+  assert.equal(actionGroup(morning, 'well').edge, 'right');
   const aged = { ...base, scene: 'entrance', forestSteps: 8 };
-  assert.deepEqual(actionGroup(aged, 'enter').anchor, { x: 66, y: 55 });
+  assert.deepEqual(actionGroup(aged, 'enter').anchor, { x: 62, y: 46 });
   const empty = { ...base, scene: 'reception', fusion: 5, flags: { ...base.flags, checkedIn: true, firstNightSlept: true, choseToStay: true, basementTruthSeen: true } };
   assert.equal(actionGroup(empty, 'confront-basement').anchor, undefined);
   assert.equal(actionGroup(empty, 'confront-basement').label, '柜台前交谈');
@@ -142,8 +146,10 @@ test('呈现为纯读取：冻结输入、不执行规则回调、返回对象�
   const frame = presentationForScene(state, scene, art);
   assert.strictEqual(frame.groups[0].choices[0], choice);
   frame.groups[0].anchor.x = 1;
+  frame.groups[0].area.w = 1;
   frame.groups[0].choices.splice(0, 1);
-  assert.equal(presentationForScene(state, scene, art).groups[0].anchor.x, 28);
+  assert.equal(presentationForScene(state, scene, art).groups[0].anchor.x, 23);
+  assert.equal(presentationForScene(state, scene, art).groups[0].area.w, 15);
   assert.equal(scene.choices.length, 1);
   assert.equal(JSON.stringify(state), before);
 });

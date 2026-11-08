@@ -4,5 +4,5 @@
 
 [agents]
 enabled = true
-# 不含主 agent；六个角色按任务选用，最多同时运行三个子 agent。
+# 不含主 agent；八个角色按任务选用，最多同时运行三个子 agent。
 max_concurrent_threads_per_session = 3
