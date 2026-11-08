@@ -133,6 +133,7 @@ export function createSceneView(elements: { shell: HTMLElement; frame: HTMLEleme
     buffer.classList.remove("is-visible");
     optionButtons = [];
     line = pager = tail = undefined;
+    spots.removeAttribute("inert");
     text.removeAttribute("inert");
     shell.querySelector<HTMLElement>(".scene-hud")?.removeAttribute("inert");
     delete shell.dataset.textHidden;
@@ -342,9 +343,13 @@ export function createSceneView(elements: { shell: HTMLElement; frame: HTMLEleme
 
   function setTextHidden(hidden: boolean): void {
     // inert blocks both pointer and Tab access; CSS mirrors the same state for older engines.
-    if (hidden) text.setAttribute("inert", ""); else text.removeAttribute("inert");
+    // Picture controls are native buttons too, so they must join the hidden layer in the inert set.
+    const controls = [text, spots, ...frame.querySelectorAll<HTMLElement>(".scene-edges")];
     const hud = shell.querySelector<HTMLElement>(".scene-hud");
-    if (hidden) hud?.setAttribute("inert", ""); else hud?.removeAttribute("inert");
+    if (hud) controls.push(hud);
+    for (const element of controls) {
+      if (hidden) element.setAttribute("inert", ""); else element.removeAttribute("inert");
+    }
     if (hidden) shell.dataset.textHidden = "true"; else delete shell.dataset.textHidden;
   }
   function hideText(): void {
