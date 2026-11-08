@@ -70,11 +70,14 @@
 .scene-menu-item:hover, .scene-menu-item:focus-visible { background: color-mix(in srgb, var(--scene-accent) 18%, transparent); outline: none; }
 
 /* ---- Narration floating over the scene ---- */
-.scene-text { position: absolute; z-index: 4; left: 50%; bottom: 7%; translate: -50% 0; width: min(34em, 76%); text-align: center; outline: none; pointer-events: none; transition: opacity 300ms ease;
+.scene-text { position: absolute; z-index: 4; left: 50%; bottom: 7%; translate: -50% 0; width: min(34em, 76%); text-align: center; outline: none; pointer-events: auto; transition: opacity 300ms ease;
   color: var(--narration-ink); font-family: var(--narration-font); letter-spacing: var(--narration-tracking); text-shadow: 0 1px 2px var(--narration-shadow), 0 0 12px var(--narration-shadow), 0 0 26px var(--narration-shadow); }
 /* A shadow under the words, not a box around them. */
 .scene-text::before { content: ""; position: absolute; z-index: -1; inset: -36px -90px; pointer-events: none; background: radial-gradient(closest-side, #04080bd9, #04080b99 50%, #04080b00); }
 .scene-text[data-band="top"] { bottom: auto; top: 10%; }
+/* The narration may also slide sideways when a picture exit sits in its band. */
+.scene-text[data-slide="left"] { left: 4%; translate: 0 0; }
+.scene-text[data-slide="right"] { left: auto; right: 4%; translate: 0 0; }
 .scene-text-title { margin: 0 0 8px; font-size: 12px; letter-spacing: .4em; opacity: .66; }
 .scene-text-line { margin: 0; font-size: 17px; line-height: 1.95; }
 .scene-text-line.is-entering { animation: scene-rise 560ms ease-out; }
@@ -109,6 +112,9 @@
 .game-shell[data-text-hidden] .scene-edges,
 .game-shell[data-text-hidden] .hotspot-label,
 .game-shell[data-text-hidden] .scene-hud { opacity: 0; pointer-events: none; }
+/* opacity does not block hit-testing: force every invisible control out of reach too. */
+.game-shell[data-text-hidden] .scene-text *,
+.game-shell[data-text-hidden] .scene-hud * { pointer-events: none !important; }
 .game-shell[data-text-hidden] .scene-hotspots { pointer-events: none; }
 .game-shell:not([data-view="story"]) .scene-frame::after { box-shadow: inset 0 0 90px 30px #0a1115c0; }
 
@@ -124,7 +130,7 @@
   /* Sit the picture and its words around the middle instead of leaving the lower half empty. */
   .scene-frame { width: 100vw; margin-top: max(48px, 16dvh); }
   .scene-frame::after { box-shadow: inset 0 0 30px 10px #0a1115b0; }
-  .scene-text, .scene-text[data-band="top"] { top: calc(100% + 20px); bottom: auto; width: 90vw; padding-bottom: 40px; }
+  .scene-text, .scene-text[data-band="top"], .scene-text[data-slide] { top: calc(100% + 20px); bottom: auto; left: 50%; right: auto; translate: -50% 0; width: 90vw; padding-bottom: 40px; }
   .scene-text::before { display: none; }
   .scene-text-line { font-size: 16px; line-height: 1.9; }
   .scene-option { font-size: 15px; }

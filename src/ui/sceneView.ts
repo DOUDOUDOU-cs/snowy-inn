@@ -5,6 +5,25 @@ import { narrationPages } from "./sceneNarration.ts";
 
 export type SceneTransition = "move" | "inspect" | "dialogue" | "return" | "ending";
 
+export type SceneKeyIntent = "close-menu" | "toggle-text" | "restore-text" | "next" | "prev" | "choose" | "none";
+
+/**
+ * Pure key decision. Hidden text is a viewing mode: only H (toggle) and Space/Enter (restore)
+ * do anything, so invisible pager/options can never be advanced by keyboard.
+ */
+export function keyIntent(key: string, state: {
+  hidden: boolean; hasMenu: boolean; onControl: boolean; optionIndex: number | null;
+}): SceneKeyIntent {
+  if (key === "Escape" && state.hasMenu) return "close-menu";
+  if (key === "h" || key === "H") return "toggle-text";
+  if (state.hidden) return key === " " || key === "Enter" ? "restore-text" : "none";
+  if ((key === " " || key === "Enter") && !state.onControl) return "next";
+  if (key === "ArrowRight" || key === "ArrowDown") return "next";
+  if (key === "ArrowLeft" || key === "ArrowUp") return "prev";
+  if (state.optionIndex !== null) return "choose";
+  return "none";
+}
+
 export interface ScenePresentOptions {
   art: SceneArt;
   mode: SceneMode;
@@ -114,6 +133,8 @@ export function createSceneView(elements: { shell: HTMLElement; frame: HTMLEleme
     buffer.classList.remove("is-visible");
     optionButtons = [];
     line = pager = tail = undefined;
+    text.removeAttribute("inert");
+    shell.querySelector<HTMLElement>(".scene-hud")?.removeAttribute("inert");
     delete shell.dataset.textHidden;
   }
 
@@ -260,6 +281,7 @@ export function createSceneView(elements: { shell: HTMLElement; frame: HTMLEleme
     tail.append(...(options.tail ?? []));
     text.append(tail);
     text.dataset.band = layout!.textBand;
+    text.dataset.slide = layout!.textSlide;
   }
 
   function showPage(): void {
@@ -291,7 +313,7 @@ export function createSceneView(elements: { shell: HTMLElement; frame: HTMLEleme
   // Clicking empty picture, the narration, or the space around them moves the reading on.
   (frame.closest<HTMLElement>(".scenery") ?? frame).addEventListener("click", event => {
     if (!current || !(event.target instanceof Element) || event.target.closest("button, .scene-menu")) return;
-    if (shell.dataset.textHidden) { delete shell.dataset.textHidden; return; }
+    if (shell.dataset.textHidden) { restoreText(); return; }
     turn(1);
   });
   document.addEventListener("pointerdown", event => {
@@ -302,22 +324,41 @@ export function createSceneView(elements: { shell: HTMLElement; frame: HTMLEleme
     if (!current || shell.dataset.view !== "story" || event.defaultPrevented || document.querySelector("dialog[open]")) return;
     if (event.altKey || event.ctrlKey || event.metaKey) return;
     lastPointer = "keyboard";
-    const onControl = event.target instanceof Element && event.target.closest("button, a, input, textarea, select");
-    if (event.key === "Escape" && menu) { event.preventDefault(); closeMenu(true); return; }
-    if (event.key === "h" || event.key === "H") { event.preventDefault(); toggleText(); return; }
-    if ((event.key === " " || event.key === "Enter") && !onControl) { if (turn(1)) event.preventDefault(); return; }
-    if (event.key === "ArrowRight" || event.key === "ArrowDown") { if (turn(1)) event.preventDefault(); return; }
-    if (event.key === "ArrowLeft" || event.key === "ArrowUp") { if (turn(-1)) event.preventDefault(); return; }
+    const onControl = event.target instanceof Element && Boolean(event.target.closest("button, a, input, textarea, select"));
     const index = Number(event.key) - 1;
-    if (Number.isInteger(index) && index >= 0 && optionButtons[index] && !tail?.hidden) {
-      event.preventDefault();
-      optionButtons[index]!.click();
-    }
+    const optionIndex = Number.isInteger(index) && index >= 0 && optionButtons[index] && !tail?.hidden ? index : null;
+    const intent = keyIntent(event.key, {
+      hidden: Boolean(shell.dataset.textHidden), hasMenu: Boolean(menu), onControl, optionIndex,
+    });
+    if (intent === "none") return;
+    event.preventDefault();
+    if (intent === "close-menu") closeMenu(true);
+    else if (intent === "toggle-text") toggleText();
+    else if (intent === "restore-text") restoreText();
+    else if (intent === "next") turn(1);
+    else if (intent === "prev") turn(-1);
+    else if (optionIndex !== null) optionButtons[optionIndex]!.click();
   });
 
+  function setTextHidden(hidden: boolean): void {
+    // inert blocks both pointer and Tab access; CSS mirrors the same state for older engines.
+    if (hidden) text.setAttribute("inert", ""); else text.removeAttribute("inert");
+    const hud = shell.querySelector<HTMLElement>(".scene-hud");
+    if (hidden) hud?.setAttribute("inert", ""); else hud?.removeAttribute("inert");
+    if (hidden) shell.dataset.textHidden = "true"; else delete shell.dataset.textHidden;
+  }
+  function hideText(): void {
+    if (shell.dataset.textHidden) return;
+    closeMenu();
+    setTextHidden(true);
+  }
+  function restoreText(): void {
+    if (!shell.dataset.textHidden) return;
+    setTextHidden(false);
+  }
+
   function toggleText(): void {
-    if (shell.dataset.textHidden) delete shell.dataset.textHidden;
-    else { closeMenu(); shell.dataset.textHidden = "true"; }
+    if (shell.dataset.textHidden) restoreText(); else hideText();
   }
 
   async function present(options: ScenePresentOptions): Promise<void> {

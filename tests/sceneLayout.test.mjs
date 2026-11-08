@@ -65,9 +65,26 @@ test('探索时前台小姐本人可点；小物件排在大物件之后，叠�
   assert.deepEqual(areas, [...areas].sort((a, b) => b - a));
 });
 
-test('旁白避开热区更多的一侧', () => {
-  const spot = (y) => ({ id: `s${y}`, label: 'x', kind: 'object', anchor: { x: 50, y }, choices: [{ id: `c${y}`, text: 't' }] });
-  assert.equal(layoutScene('environment', [spot(70), spot(80), spot(20)]).textBand, 'top');
-  assert.equal(layoutScene('environment', [spot(20), spot(30), spot(80)]).textBand, 'bottom');
-  assert.equal(layoutScene('environment', []).textBand, 'bottom');
+test('旁白避开热区：画中出口也算，左右位置用于躲开物件', () => {
+  // 与开场一致：底部是“继续赶路”的画中出口，旁白应换到上方而不是压住它。
+  const arrival = layoutScene('environment', [
+    { id: 'inn', label: '旅馆灯光', kind: 'exit', anchor: { x: 62, y: 46 }, area: { w: 28, h: 26 }, choices: [{ id: 'approach', text: '向旅馆走去' }] },
+    { id: 'road', label: '林间小路', kind: 'exit', anchor: { x: 40, y: 84 }, area: { w: 30, h: 22 }, choices: [{ id: 'walk', text: '继续赶路' }] },
+  ]);
+  assert.equal(arrival.textBand, 'top');
+
+  // 上方左角有物件、下方又有出口时，选择右上的位置而不是继续居中。
+  const leftTop = { id: 'house', label: '小屋', kind: 'object', anchor: { x: 16, y: 16 }, area: { w: 28, h: 18 }, choices: [{ id: 'house', text: '调查小屋' }] };
+  const bottomRoad = { id: 'road', label: '林间小路', kind: 'exit', anchor: { x: 50, y: 84 }, area: { w: 34, h: 22 }, choices: [{ id: 'walk', text: '继续赶路' }] };
+  const placed = layoutScene('environment', [leftTop, bottomRoad]);
+  assert.equal(placed.textBand, 'top');
+  assert.equal(placed.textSlide, 'right');
+
+  // 没有热区时保持原来的底部居中。
+  const empty = layoutScene('environment', []);
+  assert.equal(empty.textBand, 'bottom');
+  assert.equal(empty.textSlide, 'center');
+
+  // 真实开场同样把旁白让到上方，点正文不再落在“继续赶路”热区里。
+  assert.equal(layoutOf(createGame()).layout.textBand, 'top');
 });
