@@ -75,7 +75,7 @@ npm.cmd run tauri build
 
 剧情规则检查使用 Node.js 自带测试工具，需要 Node.js 22.18 或更新版本；当前开发环境为 Node.js 24。
 
-`npm.cmd run tauri build` 会生成 Windows NSIS 安装程序。已经导出的 0.2.0 试玩版位于 `release/`（安装包约 8.6MB、便携包约 8.8MB，均含 28 张场景图），这个目录不会提交到 Git；正式发布时将其中的 setup、便携 zip 与 SHA256SUMS 作为 GitHub Release 附件上传。2026-09-24 的旧包已归档在 `release/archive-0.1.0-2026-09-24/`。安装程序未做商业代码签名，Windows 可能显示“未知发布者”或 SmartScreen 拦截；本地启动时选择“更多信息 → 仍要运行”，正式发布前可再考虑签名。
+`npm.cmd run tauri build` 会生成 Windows NSIS 安装程序。已经导出的 0.2.0 试玩版位于 `release/`（安装包约 8.6MB、便携包约 8.8MB，均含 28 张场景图），这个目录不会提交到 Git；正式发布时将其中的 setup、便携 zip 与 SHA256SUMS 作为 GitHub Release 附件上传。2026-09-24 的旧包已归档在 `release/archive-0.1.0-2026-09-24/`。安装程序未做商业代码签名，Windows 可能显示“未知发布者”或 SmartScreen 拦截；本地启动时选择“更多信息 → 仍要运行”，正式发布前可再考虑签名。已发布的 GitHub Release：[v0.2.0](https://github.com/DOUDOUDOU-cs/snowy-inn/releases/tag/v0.2.0)（附件使用 ASCII 名 `snowy-inn-...`，本地中文前缀文件与其哈希一致）。
 
 ## 常用文件
 
