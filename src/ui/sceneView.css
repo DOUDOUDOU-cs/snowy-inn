@@ -134,9 +134,11 @@
   .scene-text::before { display: none; }
   .scene-text-line { font-size: 16px; line-height: 1.9; }
   .scene-option { font-size: 15px; }
-  .scene-hud { padding: 4px 8px 10px; background: #05090cf0; }
-  .scene-hud-place { font-size: 11px; letter-spacing: .08em; }
-  .scene-hud-actions button { padding: 6px 7px; letter-spacing: .04em; }
+  /* Long place names plus inventory count: two tidy rows instead of mid-label wrapping. */
+  .scene-hud { padding: 4px 8px 10px; background: #05090cf0; flex-wrap: wrap; row-gap: 4px; }
+  .scene-hud-place { flex: 1 0 100%; font-size: 11px; letter-spacing: .08em; white-space: nowrap; }
+  .scene-hud-actions { width: 100%; justify-content: flex-end; }
+  .scene-hud-actions button { padding: 6px 7px; letter-spacing: .04em; white-space: nowrap; }
   .scene-edge { min-height: 40px; padding: 6px 18px 6px 8px; font-size: 13px; }
   .scene-edges[data-side="right"] .scene-edge { padding: 6px 8px 6px 18px; }
   .hotspot-label { font-size: 13px; }
