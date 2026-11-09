@@ -1,6 +1,6 @@
 [package]
 name = "game"
-version = "0.1.0"
+version = "0.2.0"
 description = "雪夜旅馆：一款离线运行的文字选择与解谜游戏"
 authors = []
 edition = "2021"
